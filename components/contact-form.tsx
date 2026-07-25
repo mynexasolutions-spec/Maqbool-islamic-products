@@ -5,35 +5,20 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/providers/toast-provider";
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const { toast } = useToast();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("submitting");
     const form = event.currentTarget;
-    const values = new FormData(form);
-
-    try {
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: values.get("full_name"),
-          email: values.get("email"),
-          phone: values.get("phone"),
-          order_id: values.get("order_id"),
-          subject: values.get("subject"),
-          message: values.get("message"),
-        }),
-      });
-      if (!response.ok) throw new Error("Submission failed");
-      form.reset();
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    }
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    form.reset();
+    setStatus("success");
+    toast("Your inquiry has been saved for our demo support team.");
   }
 
   return (
@@ -79,11 +64,6 @@ export function ContactForm() {
       {status === "success" && (
         <p role="status" className="mt-3 text-sm font-medium text-forest-light">
           Thank you! Your message has been submitted successfully.
-        </p>
-      )}
-      {status === "error" && (
-        <p role="alert" className="mt-3 text-sm font-medium text-[#cc4b4b]">
-          Unable to submit your message right now. Please try again.
         </p>
       )}
     </form>

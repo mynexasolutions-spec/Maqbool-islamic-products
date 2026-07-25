@@ -1,4 +1,5 @@
 export type Product = {
+  slug: string;
   name: string;
   category: string;
   price: string;
@@ -12,6 +13,7 @@ export type Product = {
 
 export const products: Product[] = [
   {
+    slug: "holy-quran-arabic-text",
     name: "The Holy Quran (Arabic Text)",
     category: "Quran & Tafsir",
     price: "₹699",
@@ -23,6 +25,7 @@ export const products: Product[] = [
     badgeTone: "gold",
   },
   {
+    slug: "gold-quran-carved-stand-set",
     name: "Gold Quran with Carved Stand Set",
     category: "Islamic Gifts",
     price: "₹1,499",
@@ -34,6 +37,7 @@ export const products: Product[] = [
     badgeTone: "green",
   },
   {
+    slug: "premium-velvet-prayer-mat",
     name: "Premium Velvet Prayer Mat",
     category: "Prayer Mats",
     price: "₹549",
@@ -43,6 +47,7 @@ export const products: Product[] = [
     reviews: "982",
   },
   {
+    slug: "royal-trio-perfume-oil",
     name: "Royal Trio Concentrated Perfume Oil",
     category: "Ittars & Perfumes",
     price: "₹1,199",
@@ -54,6 +59,7 @@ export const products: Product[] = [
     badgeTone: "red",
   },
   {
+    slug: "crystal-sandalwood-attar",
     name: "Crystal Bottle Sandalwood Attar",
     category: "Ittars & Perfumes",
     price: "₹699",
@@ -63,6 +69,7 @@ export const products: Product[] = [
     reviews: "682",
   },
   {
+    slug: "oud-al-haramain-attar",
     name: "Oud Al Haramain Premium Attar",
     category: "Ittars & Perfumes",
     price: "₹899",
@@ -74,6 +81,7 @@ export const products: Product[] = [
     badgeTone: "green",
   },
   {
+    slug: "emerald-jade-tasbih",
     name: "Emerald Jade Tasbih (99 Beads)",
     category: "Tasbih & Misbaha",
     price: "₹399",
@@ -83,6 +91,7 @@ export const products: Product[] = [
     reviews: "890",
   },
   {
+    slug: "classic-olive-tasbih",
     name: "Misbaha Classic Olive Tasbih",
     category: "Tasbih & Misbaha",
     price: "₹319",

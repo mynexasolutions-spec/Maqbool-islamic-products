@@ -4,21 +4,45 @@ import { Facebook, Instagram, Youtube } from "lucide-react";
 const columns = [
   {
     title: "Shop",
-    links: ["All Products", "Quran", "Prayer Mats", "Ittars & Perfumes", "Islamic Gifts", "Books"],
+    links: [
+      ["All Products", "/shop"],
+      ["Quran", "/shop?category=Quran+%26+Tafsir"],
+      ["Prayer Mats", "/shop?category=Prayer+Mats"],
+      ["Ittars & Perfumes", "/shop?category=Ittars+%26+Perfumes"],
+      ["Islamic Gifts", "/shop?category=Islamic+Gifts"],
+      ["Books", "/shop?category=Books"],
+    ],
   },
   {
     title: "Customer Service",
-    links: ["Track Order", "Shipping & Delivery", "Returns & Refunds", "FAQ", "Contact Us"],
+    links: [
+      ["Track Order", "/profile/orders"],
+      ["Shipping & Delivery", "/policies/shipping"],
+      ["Returns & Refunds", "/policies/refund"],
+      ["FAQ", "/#faqs"],
+      ["Contact Us", "/contact"],
+    ],
   },
   {
     title: "About Us",
-    links: ["Our Story", "Why Choose Us", "Authenticity", "Careers", "Blog"],
+    links: [
+      ["Our Story", "/about"],
+      ["Why Choose Us", "/about"],
+      ["Authenticity", "/about"],
+      ["Careers", "/contact"],
+      ["Blog", "/about"],
+    ],
   },
   {
     title: "Information",
-    links: ["Terms & Conditions", "Privacy Policy", "Refund Policy", "Shipping Policy"],
+    links: [
+      ["Terms & Conditions", "/policies/terms"],
+      ["Privacy Policy", "/policies/privacy"],
+      ["Refund Policy", "/policies/refund"],
+      ["Shipping Policy", "/policies/shipping"],
+    ],
   },
-];
+] as const;
 
 export function Footer() {
   return (
@@ -62,13 +86,13 @@ export function Footer() {
               {column.title}
             </h5>
             <ul className="space-y-2.5">
-              {column.links.map((item) => (
-                <li key={item}>
+              {column.links.map(([label, href]) => (
+                <li key={label}>
                   <Link
-                    href={item === "All Products" ? "/shop" : item === "Contact Us" ? "/contact" : "#"}
+                    href={href}
                     className="text-sm text-muted hover:text-forest"
                   >
-                    {item}
+                    {label}
                   </Link>
                 </li>
               ))}

@@ -27,7 +27,7 @@ export function ProductCard({
           {product.badge}
         </span>
       )}
-      <Link href="/product" className="block">
+      <Link href={`/shop/${product.slug}`} className="block">
         <div className={`relative overflow-hidden rounded ${compact ? "h-44" : "h-[220px]"}`}>
           <Image
             src={product.image}

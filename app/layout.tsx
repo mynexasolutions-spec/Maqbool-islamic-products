@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Marcellus, Plus_Jakarta_Sans } from "next/font/google";
+import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
 const marcellus = Marcellus({
@@ -23,7 +24,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${marcellus.variable} ${jakarta.variable}`}>
-      <body>{children}</body>
+      <body><AppProviders>{children}</AppProviders></body>
     </html>
   );
 }
