@@ -1,0 +1,4 @@
+project_id = "maqbool-islamic-products"
+
+[functions.contact-notification]
+verify_jwt = false
