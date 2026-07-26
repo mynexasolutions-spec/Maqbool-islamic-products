@@ -41,8 +41,8 @@ export default function ContactPage() {
           </InfoCard>
           <InfoCard icon={Mail} title="Email Support">
             <p>We usually respond within 24 hours.</p>
-            <a href="mailto:support@nooreiman.com" className="font-semibold text-forest">
-              support@nooreiman.com
+            <a href="mailto:maqboolislamicproducts@gmail.com" className="font-semibold text-forest">
+              maqboolislamicproducts@gmail.com
             </a>
           </InfoCard>
           <InfoCard icon={MapPin} title="Visit Our Store">

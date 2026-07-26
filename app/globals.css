@@ -29,7 +29,7 @@
 
 @layer components {
   .site-container {
-    @apply mx-auto w-full max-w-[1240px] px-5;
+    @apply mx-auto w-full max-w-[1500px] px-4 sm:px-6;
   }
 
   .section-title {

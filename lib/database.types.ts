@@ -18,6 +18,9 @@ type CategoryRow = Timestamped & {
   description: string | null;
   is_active: boolean;
   display_order: number;
+  image_url: string | null;
+  image_public_id: string | null;
+  image_alt_text: string;
 };
 
 type ProductRow = Timestamped & {
@@ -34,6 +37,8 @@ type ProductRow = Timestamped & {
   is_featured: boolean;
   is_active: boolean;
   display_order: number;
+  seo_title: string | null;
+  seo_description: string | null;
 };
 
 type VariantRow = Timestamped & {
@@ -140,7 +145,10 @@ type ContactMessageRow = {
   order_id: string | null;
   subject: string;
   message: string;
+  status: "new" | "open" | "resolved";
+  admin_note: string | null;
   created_at: string;
+  updated_at: string;
 };
 
 type MarketRow = Timestamped & {
@@ -187,6 +195,7 @@ type OrderRow = Timestamped & {
   currency_code: string;
   customer_name: string;
   customer_phone: string;
+  customer_email: string | null;
   delivery_address: Json;
   subtotal: number;
   discount: number;
@@ -201,6 +210,65 @@ type OrderRow = Timestamped & {
   payment_status: "pending" | "simulated" | "paid" | "failed" | "refunded";
   status: "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   stock_restored_at: string | null;
+};
+
+type CustomerProfileRow = Timestamped & {
+  id: string;
+  name: string;
+  phone: string;
+  normalized_phone: string;
+  email: string | null;
+  is_active: boolean;
+  suspension_reason: string | null;
+  first_order_at: string | null;
+  last_order_at: string | null;
+};
+
+type ProductReviewRow = Timestamped & {
+  id: string;
+  product_id: string;
+  order_id: string;
+  customer_name: string;
+  customer_phone: string;
+  rating: number;
+  body: string;
+  status: "pending" | "approved" | "rejected";
+  verified: boolean;
+};
+
+type CouponRow = Timestamped & {
+  id: string;
+  market_id: string;
+  code: string;
+  discount_type: "percentage" | "flat";
+  discount_value: number;
+  minimum_purchase: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  usage_limit: number | null;
+  usage_count: number;
+  is_active: boolean;
+};
+
+type AnnouncementRow = Timestamped & {
+  id: boolean;
+  message: string;
+  is_active: boolean;
+};
+
+type AdminProfileRow = Timestamped & {
+  id: boolean;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+};
+
+type OrderEventRow = {
+  id: string;
+  order_id: string;
+  status: OrderRow["status"];
+  note: string | null;
+  created_at: string;
 };
 
 type OrderItemRow = {
@@ -249,6 +317,12 @@ export type Database = {
       variant_market_prices: TableDef<VariantMarketPriceRow>;
       orders: TableDef<OrderRow>;
       order_items: TableDef<OrderItemRow>;
+      customer_profiles: TableDef<CustomerProfileRow>;
+      product_reviews: TableDef<ProductReviewRow>;
+      coupons: TableDef<CouponRow>;
+      announcements: TableDef<AnnouncementRow>;
+      admin_profiles: TableDef<AdminProfileRow>;
+      order_events: TableDef<OrderEventRow>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -266,6 +340,16 @@ export type Database = {
       set_market_order_status: {
         Args: { order_id_input: string; status_input: string };
         Returns: undefined;
+      };
+      submit_product_review: {
+        Args: {
+          product_id_input: string;
+          order_number_input: string;
+          phone_input: string;
+          rating_input: number;
+          body_input: string;
+        };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;

@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut, MapPin, Package, UserRound } from "lucide-react";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { useToast } from "@/components/providers/toast-provider";
+import { useMarket } from "@/components/providers/market-provider";
+import { displayPhone } from "@/lib/phone";
 
 const links = [
   { href: "/profile", label: "Account", icon: UserRound },
@@ -16,6 +18,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { customer, logout } = useCustomer();
+  const { marketSlug } = useMarket();
   const { toast } = useToast();
 
   return (
@@ -24,7 +27,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
         <div className="bg-forest p-6 text-white">
           <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-white/10"><UserRound className="h-5 w-5" aria-hidden="true" /></span>
           <p className="font-heading text-xl">{customer?.name}</p>
-          <p className="mt-1 text-xs text-[#d4e2dc]">+91 {customer?.phone}</p>
+          <p className="mt-1 text-xs text-[#d4e2dc]">{customer ? displayPhone(customer.phone, marketSlug) : ""}</p>
         </div>
         <nav className="p-3" aria-label="Account navigation">
           {links.map(({ href, label, icon: Icon }) => {

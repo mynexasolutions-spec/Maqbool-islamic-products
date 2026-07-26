@@ -6,6 +6,9 @@ export type AdminCatalogCategory = {
   isActive: boolean;
   displayOrder: number;
   productCount: number;
+  imageUrl: string;
+  imagePublicId: string;
+  imageAltText: string;
 };
 
 export type AdminCatalogVariant = {
@@ -62,6 +65,8 @@ export type AdminCatalogProduct = {
   isFeatured: boolean;
   isActive: boolean;
   displayOrder: number;
+  seoTitle: string;
+  seoDescription: string;
   variants: AdminCatalogVariant[];
   information: AdminCatalogInformation[];
   faqs: AdminCatalogFaq[];

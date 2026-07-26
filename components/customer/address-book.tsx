@@ -7,12 +7,15 @@ import { useToast } from "@/components/providers/toast-provider";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { Address } from "@/lib/models";
+import { useMarket } from "@/components/providers/market-provider";
+import { displayPhone, isValidMarketPhone, MARKET_PHONE_RULES, toInternationalPhone } from "@/lib/phone";
 
-const emptyAddress: Address = { id: "", label: "Home", name: "", phone: "", line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false };
+const emptyAddress = (countryCode: string): Address => ({ id: "", label: "Home", name: "", phone: "", line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false, countryCode });
 
 export function AddressBook() {
   const { addresses, saveAddress, removeAddress } = useCustomer();
   const { toast } = useToast();
+  const { marketSlug, market } = useMarket();
   const [editing, setEditing] = useState<Address | null>(null);
   const [error, setError] = useState("");
 
@@ -23,11 +26,14 @@ export function AddressBook() {
       setError("Complete all required address fields.");
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(editing.phone) || !/^\d{6}$/.test(editing.pincode)) {
-      setError("Enter a valid 10-digit phone number and 6-digit pincode.");
+    const validPostal = marketSlug === "in" ? /^\d{6}$/.test(editing.pincode)
+      : marketSlug === "sa" || marketSlug === "my" ? /^\d{5}$/.test(editing.pincode)
+      : editing.pincode.trim().length === 0 || editing.pincode.trim().length >= 3;
+    if (!isValidMarketPhone(editing.phone, marketSlug) || !validPostal) {
+      setError(`Enter a valid ${market.name} phone number and postal code.`);
       return;
     }
-    saveAddress({ ...editing, id: editing.id || `addr-${Date.now()}` });
+    saveAddress({ ...editing, phone: toInternationalPhone(editing.phone, marketSlug), countryCode: market.countryCode, id: editing.id || `addr-${Date.now()}` });
     toast(editing.id ? "Address updated." : "Address saved.");
     setEditing(null);
     setError("");
@@ -40,7 +46,7 @@ export function AddressBook() {
           <p className="text-xs font-bold uppercase tracking-[.18em] text-gold">Delivery details</p>
           <h2 className="mt-1 font-heading text-2xl text-forest">Saved addresses</h2>
         </div>
-        <button type="button" onClick={() => setEditing({ ...emptyAddress })} className="flex min-h-11 items-center gap-2 rounded-md bg-forest px-4 text-sm font-semibold text-white hover:bg-forest-light">
+        <button type="button" onClick={() => setEditing(emptyAddress(market.countryCode))} className="flex min-h-11 items-center gap-2 rounded-md bg-forest px-4 text-sm font-semibold text-white hover:bg-forest-light">
           <Plus className="h-4 w-4" aria-hidden="true" /> Add address
         </button>
       </div>
@@ -55,7 +61,7 @@ export function AddressBook() {
               <address className="mt-3 text-sm not-italic leading-6 text-muted">
                 <strong className="text-[#2b2b2b]">{address.name}</strong><br />
                 {address.line1}{address.line2 ? `, ${address.line2}` : ""}<br />
-                {address.city}, {address.state} {address.pincode}<br />+91 {address.phone}
+                {address.city}, {address.state} {address.pincode}<br />{displayPhone(address.phone, marketSlug)}
               </address>
               <div className="mt-4 flex gap-2">
                 <button type="button" onClick={() => setEditing({ ...address })} className="flex min-h-11 items-center gap-2 rounded-md border border-[#d8caaa] px-3 text-xs font-semibold text-forest"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit</button>
@@ -78,7 +84,7 @@ export function AddressBook() {
             {[
               ["label", "Label", "Home"],
               ["name", "Recipient name", "Full name"],
-              ["phone", "Phone number", "10-digit number"],
+              ["phone", "Phone number", MARKET_PHONE_RULES[marketSlug].example],
               ["line1", "Address line 1", "House and street"],
               ["line2", "Address line 2 (optional)", "Landmark or area"],
               ["city", "City", "City"],
@@ -87,7 +93,7 @@ export function AddressBook() {
             ].map(([field, label, placeholder]) => (
               <label key={field} className={`text-sm font-semibold text-forest ${field === "line1" || field === "line2" ? "sm:col-span-2" : ""}`}>
                 {label}
-                <Input className="mt-2 font-normal text-[#2b2b2b]" value={String(editing[field as keyof Address] ?? "")} onChange={(event) => setEditing({ ...editing, [field]: field === "phone" || field === "pincode" ? event.target.value.replace(/\D/g, "") : event.target.value })} maxLength={field === "phone" ? 10 : field === "pincode" ? 6 : undefined} inputMode={field === "phone" || field === "pincode" ? "numeric" : undefined} placeholder={placeholder} />
+                <Input className="mt-2 font-normal text-[#2b2b2b]" value={String(editing[field as keyof Address] ?? "")} onChange={(event) => setEditing({ ...editing, [field]: field === "phone" ? event.target.value.replace(/[^\d+]/g, "") : field === "pincode" ? event.target.value.replace(/\D/g, "") : event.target.value })} maxLength={field === "phone" ? MARKET_PHONE_RULES[marketSlug].maxLength + 4 : field === "pincode" ? 12 : undefined} inputMode={field === "phone" ? "tel" : field === "pincode" ? "numeric" : undefined} placeholder={placeholder} />
               </label>
             ))}
             <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-forest sm:col-span-2">

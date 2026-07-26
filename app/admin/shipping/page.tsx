@@ -1,2 +1,6 @@
-import { ReadOnlyModule } from "@/components/admin/read-only-module";
-export default function Page() { return <ReadOnlyModule kind="shipping" />; }
+import { ShippingManager } from "@/components/admin/shipping-manager";
+import { getAdminMarkets } from "@/app/admin/markets/actions";
+
+export default async function AdminShippingPage() {
+  return <ShippingManager initialMarkets={await getAdminMarkets()} />;
+}

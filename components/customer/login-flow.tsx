@@ -6,6 +6,8 @@ import { ArrowLeft, BadgeCheck, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { Input } from "@/components/ui/input";
+import { useMarket } from "@/components/providers/market-provider";
+import { isValidMarketPhone, MARKET_PHONE_RULES, nationalPhoneDigits, toInternationalPhone } from "@/lib/phone";
 
 function safeReturnPath(value: string | null) {
   return value && /^\/(?!\/)/.test(value) ? value : "/profile";
@@ -15,6 +17,7 @@ export function LoginFlow() {
   const router = useRouter();
   const params = useSearchParams();
   const { login } = useCustomer();
+  const { marketSlug, market } = useMarket();
   const { toast } = useToast();
   const [step, setStep] = useState<"details" | "otp">("details");
   const [name, setName] = useState("");
@@ -25,13 +28,13 @@ export function LoginFlow() {
 
   function requestOtp(event: FormEvent) {
     event.preventDefault();
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = nationalPhoneDigits(phone, marketSlug);
     if (name.trim().length < 2) {
       setError("Enter your full name.");
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setError("Enter a valid 10-digit Indian mobile number.");
+    if (!isValidMarketPhone(cleanPhone, marketSlug)) {
+      setError(`Enter a valid ${market.name} mobile number.`);
       return;
     }
     setPhone(cleanPhone);
@@ -46,7 +49,7 @@ export function LoginFlow() {
       setError("That code is incorrect. For this demo, use 123456.");
       return;
     }
-    login(name.trim(), phone);
+    login(name.trim(), toInternationalPhone(phone, marketSlug));
     toast(`Welcome, ${name.trim().split(" ")[0]}.`);
     router.replace(safeReturnPath(params.get("returnTo")));
   }
@@ -84,8 +87,8 @@ export function LoginFlow() {
               <div>
                 <label htmlFor="customer-phone" className="mb-2 block text-sm font-semibold text-forest">Mobile number</label>
                 <div className="flex">
-                  <span className="grid h-10 place-items-center rounded-l-md border border-r-0 border-input bg-cream px-3 text-sm text-muted" aria-hidden="true">+91</span>
-                  <Input id="customer-phone" className="rounded-l-none" inputMode="numeric" autoComplete="tel-national" maxLength={10} value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))} aria-describedby="phone-hint login-error" placeholder="10-digit number" />
+                  <span className="grid h-10 place-items-center rounded-l-md border border-r-0 border-input bg-cream px-3 text-sm text-muted" aria-hidden="true">{MARKET_PHONE_RULES[marketSlug].callingCode}</span>
+                  <Input id="customer-phone" className="rounded-l-none" inputMode="numeric" autoComplete="tel-national" maxLength={MARKET_PHONE_RULES[marketSlug].maxLength} value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))} aria-describedby="phone-hint login-error" placeholder={MARKET_PHONE_RULES[marketSlug].example} />
                 </div>
                 <p id="phone-hint" className="mt-2 text-xs text-muted">We use this only to identify your local demo account.</p>
               </div>

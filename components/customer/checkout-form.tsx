@@ -8,11 +8,11 @@ import { useCart } from "@/components/providers/cart-provider";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { Input } from "@/components/ui/input";
-import { calculateMarketCheckout, COUPON_CODE, formatPrice } from "@/lib/commerce";
+import { calculateMarketCheckout, formatPrice } from "@/lib/commerce";
 import type { Address, MockOrder, PaymentMethod } from "@/lib/models";
 import { useMarket } from "@/components/providers/market-provider";
 import { marketHref } from "@/lib/markets";
-import { placeOrder as persistOrder } from "@/app/checkout/actions";
+import { placeOrder as persistOrder, validateCoupon } from "@/app/checkout/actions";
 
 function blankAddress(name: string, phone: string, countryCode: string): Address {
   return { id: "", label: "Home", name, phone, line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false, countryCode };
@@ -30,10 +30,11 @@ export function CheckoutForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState("");
+  const [couponDefinition, setCouponDefinition] = useState<{ type: "percentage" | "flat"; value: number } | null>(null);
   const [couponMessage, setCouponMessage] = useState("");
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
-  const totals = useMemo(() => calculateMarketCheckout(items, appliedCoupon, paymentMethod, checkoutSettings), [appliedCoupon, checkoutSettings, items, paymentMethod]);
+  const totals = useMemo(() => calculateMarketCheckout(items, appliedCoupon, paymentMethod, checkoutSettings, couponDefinition), [appliedCoupon, checkoutSettings, couponDefinition, items, paymentMethod]);
   const marketAddresses = addresses.filter((item) => !item.countryCode || item.countryCode === market.countryCode);
   useEffect(() => {
     if (checkoutSettings && !checkoutSettings.codEnabled && checkoutSettings.onlineEnabled) setPaymentMethod("online");
@@ -49,15 +50,19 @@ export function CheckoutForm() {
     if (saved) setAddress({ ...saved });
   }
 
-  function applyCoupon() {
-    if (couponInput.trim().toUpperCase() !== COUPON_CODE) {
+  async function applyCoupon() {
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const result = await validateCoupon({ marketSlug, code: couponInput, subtotal });
+    if (!result.ok) {
       setAppliedCoupon("");
-      setCouponMessage("This coupon is not valid. Try MAQBOOL10.");
+      setCouponDefinition(null);
+      setCouponMessage(result.error);
       return;
     }
-    setAppliedCoupon(COUPON_CODE);
-    setCouponInput(COUPON_CODE);
-    setCouponMessage("10% discount applied.");
+    setAppliedCoupon(result.coupon.code);
+    setCouponDefinition({ type: result.coupon.type, value: result.coupon.value });
+    setCouponInput(result.coupon.code);
+    setCouponMessage("Coupon applied.");
   }
 
   async function placeOrder(event: FormEvent) {

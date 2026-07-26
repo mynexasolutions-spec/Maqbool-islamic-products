@@ -44,6 +44,7 @@ type ImageRow = Tables<"product_images">;
 type InformationRow = Tables<"product_information">;
 type FaqRow = Tables<"product_faqs">;
 type OfferRow = Tables<"variant_market_prices">;
+type ReviewRow = Tables<"product_reviews">;
 
 async function resolveMarket(slug?: MarketSlug) {
   const marketSlug = slug ?? await getRequestMarketSlug();
@@ -64,13 +65,14 @@ async function composeProducts(rows: ProductRow[], categories: CategoryRow[], ma
   if (!rows.length) return [];
   const client = await createClient();
   const ids = rows.map((row) => row.id);
-  const [variants, images, information, faqs] = await Promise.all([
+  const [variants, images, information, faqs, reviews] = await Promise.all([
     client.from("product_variants").select("*").in("product_id", ids),
     client.from("product_images").select("*").in("product_id", ids),
     client.from("product_information").select("*").in("product_id", ids),
     client.from("product_faqs").select("*").in("product_id", ids),
+    client.from("product_reviews").select("*").in("product_id", ids).eq("status", "approved"),
   ]);
-  const firstError = [variants.error, images.error, information.error, faqs.error].find(Boolean);
+  const firstError = [variants.error, images.error, information.error, faqs.error, reviews.error].find(Boolean);
   if (firstError) throw new CatalogRepositoryError();
   const variantRows = (variants.data ?? []) as VariantRow[];
   const variantIds = variantRows.map((item) => item.id);
@@ -105,6 +107,7 @@ async function composeProducts(rows: ProductRow[], categories: CategoryRow[], ma
     const imageRows = (images.data ?? []) as ImageRow[];
     const informationRows = (information.data ?? []) as InformationRow[];
     const faqRows = (faqs.data ?? []) as FaqRow[];
+    const reviewRows = (reviews.data ?? []) as ReviewRow[];
     return [{
       id: row.id,
       slug: row.slug,
@@ -121,6 +124,8 @@ async function composeProducts(rows: ProductRow[], categories: CategoryRow[], ma
       badge: row.badge ?? undefined,
       marketSlug,
       currencyCode,
+      seoTitle: row.seo_title ?? undefined,
+      seoDescription: row.seo_description ?? undefined,
       images: imageRows.filter((image) => image.product_id === row.id && image.is_active)
         .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || a.display_order - b.display_order)
         .map((image) => ({ id: image.id, src: image.secure_url, alt: image.alt_text })),
@@ -129,6 +134,9 @@ async function composeProducts(rows: ProductRow[], categories: CategoryRow[], ma
         .sort((a, b) => a.display_order - b.display_order).map((item) => [item.label, item.value])),
       faqs: faqRows.filter((faq) => faq.product_id === row.id && faq.is_active)
         .sort((a, b) => a.display_order - b.display_order).map(({ question, answer }) => ({ question, answer })),
+      reviews: reviewRows.filter((review) => review.product_id === row.id)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .map((review) => ({ id: review.id, name: review.customer_name, rating: review.rating, body: review.body, createdAt: review.created_at })),
     }];
   });
 }

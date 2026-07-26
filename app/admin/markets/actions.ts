@@ -121,6 +121,7 @@ export async function saveMarket(input: AdminMarket) {
     revalidatePath("/");
     revalidatePath("/shop");
     revalidatePath("/admin/markets");
+    revalidatePath("/admin/shipping");
     return { ok: true as const, message: `${input.name} settings saved.` };
   } catch (error) {
     return failure(error);

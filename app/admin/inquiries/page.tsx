@@ -1,2 +1,6 @@
-import { ReadOnlyModule } from "@/components/admin/read-only-module";
-export default function Page() { return <ReadOnlyModule kind="inquiries" />; }
+import { InquiryManager } from "@/components/admin/inquiry-manager";
+import { getAdminInquiries } from "./actions";
+
+export default async function AdminInquiriesPage() {
+  return <InquiryManager initialInquiries={await getAdminInquiries()} />;
+}

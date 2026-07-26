@@ -14,8 +14,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getProduct(slug);
   if (!product) return { title: "Product not found - Maqbool Islamic Products" };
   return {
-    title: `${product.name} - Maqbool Islamic Products`,
-    description: product.description,
+    title: product.seoTitle || `${product.name} - Maqbool Islamic Products`,
+    description: product.seoDescription || product.description,
     alternates: { canonical: `/shop/${product.slug}` },
   };
 }

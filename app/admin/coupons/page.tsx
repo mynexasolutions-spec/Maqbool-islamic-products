@@ -1,2 +1,6 @@
-import { ReadOnlyModule } from "@/components/admin/read-only-module";
-export default function Page() { return <ReadOnlyModule kind="coupons" />; }
+import { getCouponData } from "@/app/admin/operations/actions";
+import { CouponManager } from "@/components/admin/operations-managers";
+
+export default async function Page() {
+  return <CouponManager data={await getCouponData()} />;
+}

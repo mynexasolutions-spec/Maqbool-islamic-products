@@ -1,2 +1,6 @@
-import { ReadOnlyModule } from "@/components/admin/read-only-module";
-export default function Page() { return <ReadOnlyModule kind="reviews" />; }
+import { getReviews } from "@/app/admin/operations/actions";
+import { ReviewManager } from "@/components/admin/operations-managers";
+
+export default async function Page() {
+  return <ReviewManager reviews={await getReviews()} />;
+}

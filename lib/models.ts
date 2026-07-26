@@ -33,8 +33,11 @@ export type Product = {
   variants: ProductVariant[];
   specifications: Record<string, string>;
   faqs: Array<{ question: string; answer: string }>;
+  reviews?: Array<{ id: string; name: string; rating: number; body: string; createdAt: string }>;
   marketSlug?: string;
   currencyCode?: string;
+  seoTitle?: string;
+  seoDescription?: string;
 };
 
 export type Category = {

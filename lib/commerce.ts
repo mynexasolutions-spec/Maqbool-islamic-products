@@ -28,10 +28,15 @@ export function calculateMarketCheckout(
   coupon: string,
   paymentMethod: PaymentMethod,
   settings: MarketCheckoutSettings | null,
+  couponDefinition?: { type: "percentage" | "flat"; value: number } | null,
 ) {
   if (!settings) return { subtotal: 0, shipping: 0, discount: 0, tax: 0, codCharge: 0, total: 0 };
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discount = coupon.trim().toUpperCase() === COUPON_CODE ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+  const discount = couponDefinition
+    ? Math.min(subtotal, couponDefinition.type === "percentage"
+      ? Math.round(subtotal * couponDefinition.value) / 100
+      : couponDefinition.value)
+    : coupon.trim().toUpperCase() === COUPON_CODE ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
   const shipping = subtotal > 0 && (settings.freeShippingThreshold === null || subtotal - discount < settings.freeShippingThreshold)
     ? settings.shippingFee
     : 0;

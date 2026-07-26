@@ -1,2 +1,6 @@
-import { ReadOnlyModule } from "@/components/admin/read-only-module";
-export default function Page() { return <ReadOnlyModule kind="announcements" />; }
+import { getAnnouncement } from "@/app/admin/operations/actions";
+import { AnnouncementManager } from "@/components/admin/operations-managers";
+
+export default async function Page() {
+  return <AnnouncementManager announcement={await getAnnouncement()} />;
+}

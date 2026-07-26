@@ -84,3 +84,23 @@ export async function placeOrder(input: CheckoutInput): Promise<{ ok: true; orde
     return { ok: false, error: error instanceof Error ? error.message : "Unable to place your order." };
   }
 }
+
+export async function validateCoupon(input: { marketSlug: string; code: string; subtotal: number }) {
+  try {
+    if (!isMarketSlug(input.marketSlug) || !input.code.trim()) throw new Error("Enter a valid coupon.");
+    const supabase = createAdminClient();
+    const { data: market, error: marketError } = await supabase.from("markets").select("id").eq("slug", input.marketSlug).single();
+    if (marketError || !market) throw new Error("Market is unavailable.");
+    const { data, error } = await supabase.from("coupons").select("*")
+      .eq("market_id", market.id).eq("code", input.code.trim().toUpperCase()).eq("is_active", true).maybeSingle();
+    const now = Date.now();
+    if (error || !data || (data.starts_at && Date.parse(data.starts_at) > now) || (data.ends_at && Date.parse(data.ends_at) < now)
+      || (data.usage_limit !== null && data.usage_count >= data.usage_limit)) {
+      throw new Error("This coupon is not valid for the selected market.");
+    }
+    if (input.subtotal < Number(data.minimum_purchase)) throw new Error(`Minimum purchase is ${Number(data.minimum_purchase)}.`);
+    return { ok: true as const, coupon: { code: data.code, type: data.discount_type, value: Number(data.discount_value) } };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Unable to validate coupon." };
+  }
+}

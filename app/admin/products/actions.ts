@@ -112,6 +112,8 @@ export async function getAdminProducts(): Promise<AdminCatalogProduct[]> {
     isFeatured: item.is_featured,
     isActive: item.is_active,
     displayOrder: item.display_order,
+    seoTitle: item.seo_title ?? "",
+    seoDescription: item.seo_description ?? "",
     variants: (variantResult.data ?? []).filter((variant) => variant.product_id === item.id).map((variant) => ({
       id: variant.id,
       sku: variant.sku ?? "",
@@ -273,6 +275,8 @@ export async function saveProduct(input: ProductInput): Promise<CatalogActionRes
       is_featured: input.isFeatured,
       is_active: input.isActive,
       display_order: input.displayOrder,
+      seo_title: input.seoTitle.trim().slice(0, 70) || null,
+      seo_description: input.seoDescription.trim().slice(0, 160) || null,
     };
     const operation = UUID_PATTERN.test(input.id)
       ? supabase.from("products").update(payload).eq("id", input.id).select("id").single()

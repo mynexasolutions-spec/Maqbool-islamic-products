@@ -7,9 +7,12 @@ import { ProtectedCustomer } from "@/components/customer/protected-customer";
 import { AccountShell } from "@/components/customer/account-shell";
 import { AddressBook } from "@/components/customer/address-book";
 import { useCustomer } from "@/components/providers/customer-provider";
+import { useMarket } from "@/components/providers/market-provider";
+import { displayPhone } from "@/lib/phone";
 
 function ProfileContent() {
   const { customer, orders } = useCustomer();
+  const { marketSlug } = useMarket();
   const joined = customer ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(new Date(customer.verifiedAt)) : "";
   return (
     <AccountShell>
@@ -19,7 +22,7 @@ function ProfileContent() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Your local demo account keeps your delivery details and orders together on this device.</p>
         <dl className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><BadgeCheck className="h-4 w-4 text-gold" /> Name</dt><dd className="mt-2 text-sm font-semibold text-forest">{customer?.name}</dd></div>
-          <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><Phone className="h-4 w-4 text-gold" /> Mobile</dt><dd className="mt-2 text-sm font-semibold text-forest">+91 {customer?.phone}</dd></div>
+          <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><Phone className="h-4 w-4 text-gold" /> Mobile</dt><dd className="mt-2 text-sm font-semibold text-forest">{customer ? displayPhone(customer.phone, marketSlug) : ""}</dd></div>
           <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><CalendarDays className="h-4 w-4 text-gold" /> Verified</dt><dd className="mt-2 text-sm font-semibold text-forest">{joined}</dd></div>
         </dl>
       </div>

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Edit3, Plus, Search, Trash2 } from "lucide-react";
-import { deleteCategory, saveCategory } from "@/app/admin/categories/actions";
+import { deleteCategory, deleteCategoryImage, saveCategory, saveCategoryImage } from "@/app/admin/categories/actions";
 import type {
   AdminCatalogCategory,
   CategoryInput,
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Table } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { AdminPageHeader, AdminPanel, EmptyAdminState, StatusPill } from "./admin-ui";
+import { CloudinaryUploadButton } from "./cloudinary-upload-button";
 
 const emptyCategory = (): AdminCatalogCategory => ({
   id: "new",
@@ -24,6 +25,9 @@ const emptyCategory = (): AdminCatalogCategory => ({
   isActive: true,
   displayOrder: 0,
   productCount: 0,
+  imageUrl: "",
+  imagePublicId: "",
+  imageAltText: "",
 });
 
 export function CategoryManager({
@@ -145,6 +149,29 @@ export function CategoryManager({
                       >
                         <Edit3 className="h-4 w-4" aria-hidden="true" />
                       </button>
+                      <CloudinaryUploadButton
+                        scope="category"
+                        label={item.imageUrl ? "Replace image" : "Add image"}
+                        disabled={isPending}
+                        onUploaded={(asset) => startTransition(async () => {
+                          const result = await saveCategoryImage({ id: item.id, asset, altText: item.imageAltText || item.name });
+                          if (!result.ok) setActionError(result.error);
+                          else { setMessage(result.message); router.refresh(); }
+                        })}
+                      />
+                      {item.imagePublicId && (
+                        <button
+                          onClick={() => startTransition(async () => {
+                            const result = await deleteCategoryImage(item.id);
+                            if (!result.ok) setActionError(result.error);
+                            else { setMessage(result.message); router.refresh(); }
+                          })}
+                          className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[#9a3d2e] hover:bg-[#fff0ed]"
+                          aria-label={`Remove image for ${item.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setActionError("");

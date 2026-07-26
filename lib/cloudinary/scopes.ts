@@ -1,5 +1,6 @@
 export const CLOUDINARY_SCOPES = {
   product: "maqbool/products",
+  category: "maqbool/categories",
   hero: "maqbool/hero",
   "home-banner": "maqbool/home-banner",
 } as const;

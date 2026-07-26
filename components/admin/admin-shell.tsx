@@ -50,7 +50,7 @@ const navGroups = [
       { href: "/admin/announcements", label: "Announcements", icon: Bell },
       { href: "/admin/homepage", label: "Homepage", icon: Images },
       { href: "/admin/faqs", label: "Global FAQs", icon: HelpCircle },
-      { href: "/admin/settings", label: "Settings", icon: Settings },
+      { href: "/admin/settings", label: "Admin profile", icon: Settings },
     ],
   },
 ];

@@ -9,16 +9,30 @@ import { useToast } from "@/components/providers/toast-provider";
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [error, setError] = useState("");
   const { toast } = useToast();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("submitting");
+    setError("");
     const form = event.currentTarget;
-    await new Promise((resolve) => window.setTimeout(resolve, 450));
-    form.reset();
-    setStatus("success");
-    toast("Your inquiry has been saved for our demo support team.");
+    const values = Object.fromEntries(new FormData(form).entries());
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Unable to submit message.");
+      form.reset();
+      setStatus("success");
+      toast("Your inquiry has been sent to the Maqbool support team.");
+    } catch (submissionError) {
+      setStatus("error");
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to submit message.");
+    }
   }
 
   return (
@@ -66,6 +80,7 @@ export function ContactForm() {
           Thank you! Your message has been submitted successfully.
         </p>
       )}
+      {status === "error" && <p role="alert" className="mt-3 text-sm font-medium text-red-800">{error}</p>}
     </form>
   );
 }

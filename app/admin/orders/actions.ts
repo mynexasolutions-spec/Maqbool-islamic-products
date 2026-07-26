@@ -25,17 +25,19 @@ export type AdminMarketOrder = {
   paymentMethod: "cod" | "online";
   paymentStatus: string;
   status: OrderStatus;
+  events: Array<{ id: string; status: OrderStatus; note: string | null; createdAt: string }>;
   items: Array<{ id: string; name: string; variantName: string; quantity: number; unitPrice: number; lineTotal: number }>;
 };
 
 export async function getAdminOrders(): Promise<AdminMarketOrder[]> {
   await requireAdmin();
   const supabase = createAdminClient();
-  const [orders, items] = await Promise.all([
+  const [orders, items, events] = await Promise.all([
     supabase.from("orders").select("*").order("created_at", { ascending: false }),
     supabase.from("order_items").select("*"),
+    supabase.from("order_events").select("*").order("created_at"),
   ]);
-  if (orders.error || items.error) throw new Error(orders.error?.message ?? items.error?.message);
+  if (orders.error || items.error || events.error) throw new Error(orders.error?.message ?? items.error?.message ?? events.error?.message);
   return (orders.data ?? []).map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
@@ -55,6 +57,12 @@ export async function getAdminOrders(): Promise<AdminMarketOrder[]> {
     paymentMethod: order.payment_method,
     paymentStatus: order.payment_status,
     status: order.status,
+    events: (events.data ?? []).filter((event) => event.order_id === order.id).map((event) => ({
+      id: event.id,
+      status: event.status,
+      note: event.note,
+      createdAt: event.created_at,
+    })),
     items: (items.data ?? []).filter((item) => item.order_id === order.id).map((item) => ({
       id: item.id,
       name: item.product_name,

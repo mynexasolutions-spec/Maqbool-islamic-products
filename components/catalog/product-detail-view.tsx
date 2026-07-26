@@ -11,12 +11,7 @@ import { useToast } from "@/components/providers/toast-provider";
 import { CatalogImage } from "@/components/catalog/catalog-image";
 import { CatalogCard } from "@/components/catalog/catalog-card";
 import { marketHref, type MarketSlug } from "@/lib/markets";
-
-const sampleReviews = [
-  { name: "Ayesha R.", date: "18 July 2026", text: "Beautiful quality and exactly as shown. The packaging also felt very thoughtful." },
-  { name: "Mohammed S.", date: "02 July 2026", text: "Arrived safely and earlier than expected. I would happily order this again as a gift." },
-  { name: "Farheen K.", date: "21 June 2026", text: "The finish is lovely and it has become part of my daily routine. Recommended." },
-];
+import { ProductReviews } from "@/components/catalog/product-reviews";
 
 export function ProductDetailView({ product, related }: { product: Product; related: Product[] }) {
   const marketSlug = (product.marketSlug ?? "in") as MarketSlug;
@@ -202,10 +197,7 @@ export function ProductDetailView({ product, related }: { product: Product; rela
           </div>
         </div>
       </section>
-      <section id="reviews" className="site-container py-14 scroll-mt-24">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-gold-dark">Verified buyers</p><h2 className="mt-1 font-heading text-3xl text-forest">What customers say</h2></div><p className="text-sm text-muted">{product.rating} average from {product.reviewCount.toLocaleString("en-IN")} reviews</p></div>
-        <div className="mt-7 grid gap-4 md:grid-cols-3">{sampleReviews.map((review) => <article key={review.name} className="rounded-lg border border-[#ece5d3] p-5"><div className="flex text-[#bd861e]" aria-label="5 out of 5 stars">{Array.from({ length: 5 }, (_, index) => <Star key={index} className="h-3.5 w-3.5 fill-current" aria-hidden="true" />)}</div><p className="mt-4 text-sm leading-6 text-muted">“{review.text}”</p><footer className="mt-5 border-t border-[#eee8dc] pt-3 text-xs"><strong className="text-forest">{review.name}</strong><span className="ml-2 text-muted">{review.date}</span></footer></article>)}</div>
-      </section>
+      <ProductReviews product={product} />
       {related.length ? <section className="bg-cream py-14"><div className="site-container"><h2 className="font-heading text-3xl text-forest">You may also like</h2><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{related.map((item) => <CatalogCard key={item.id} product={item} />)}</div></div></section> : null}
       {zoomOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="Zoomed product image" onClick={() => setZoomOpen(false)}>

@@ -30,7 +30,7 @@ export function AdminPanel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <section className={cn("rounded-2xl border border-[#ded9cc] bg-white shadow-[0_12px_36px_rgba(25,55,45,.05)]", className)}>{children}</section>;
+  return <section className={cn("min-w-0 rounded-2xl border border-[#ded9cc] bg-white shadow-[0_12px_36px_rgba(25,55,45,.05)]", className)}>{children}</section>;
 }
 
 export function StatusPill({ active, label }: { active: boolean; label?: string }) {

@@ -1,2 +1,6 @@
-import { SettingsPanel } from "@/components/admin/settings-panel";
-export default function Page() { return <SettingsPanel />; }
+import { getAdminProfile } from "@/app/admin/operations/actions";
+import { AdminProfileManager } from "@/components/admin/operations-managers";
+
+export default async function Page() {
+  return <AdminProfileManager profile={await getAdminProfile()} />;
+}

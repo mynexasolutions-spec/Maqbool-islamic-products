@@ -52,6 +52,8 @@ function emptyProduct(): AdminCatalogProduct {
     isFeatured: false,
     isActive: true,
     displayOrder: 0,
+    seoTitle: "",
+    seoDescription: "",
     variants: [],
     information: [],
     faqs: [],
@@ -340,6 +342,15 @@ function ProductForm({
         <Field label="Description" htmlFor="product-description">
           <Textarea id="product-description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
         </Field>
+        <div className="rounded-xl border border-[#e5dfd2] bg-[#faf9f5] p-4">
+          <h3 className="mb-3 font-bold text-[#123d32]">Search engine preview</h3>
+          <Field label="SEO title" htmlFor="product-seo-title">
+            <Input id="product-seo-title" maxLength={70} value={draft.seoTitle} onChange={(event) => setDraft({ ...draft, seoTitle: event.target.value })} placeholder={draft.name || "Product page title"} />
+          </Field>
+          <div className="mt-4"><Field label="Meta description" htmlFor="product-seo-description">
+            <Textarea id="product-seo-description" maxLength={160} value={draft.seoDescription} onChange={(event) => setDraft({ ...draft, seoDescription: event.target.value })} placeholder="Short description shown by search engines" />
+          </Field></div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="India base price (INR)" htmlFor="product-price" required>
             <Input id="product-price" type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} />

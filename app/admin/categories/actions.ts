@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { AdminAuthorizationError, requireAdmin } from "@/lib/admin-authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { destroyCloudinaryImage } from "@/lib/cloudinary/server";
+import type { CloudinaryUploadAsset } from "@/lib/cloudinary/types";
 import type {
   AdminCatalogCategory,
   CatalogActionResult,
@@ -53,7 +55,55 @@ export async function getAdminCategories(): Promise<AdminCatalogCategory[]> {
     isActive: item.is_active,
     displayOrder: item.display_order,
     productCount: (products ?? []).filter((product) => product.category_id === item.id).length,
+    imageUrl: item.image_url ?? "",
+    imagePublicId: item.image_public_id ?? "",
+    imageAltText: item.image_alt_text ?? "",
   }));
+}
+
+export async function saveCategoryImage(input: { id: string; asset: CloudinaryUploadAsset; altText: string }): Promise<CatalogActionResult> {
+  try {
+    await requireAdmin();
+    if (!UUID_PATTERN.test(input.id) || input.asset.resourceType !== "image" || !input.asset.publicId.startsWith("maqbool/categories/")) {
+      throw new Error("Invalid category image.");
+    }
+    const supabase = createAdminClient();
+    const { data: current, error: findError } = await supabase.from("categories").select("image_public_id").eq("id", input.id).single();
+    if (findError) throw new Error(findError.message);
+    const { error } = await supabase.from("categories").update({
+      image_url: input.asset.secureUrl,
+      image_public_id: input.asset.publicId,
+      image_alt_text: input.altText.trim().slice(0, 180),
+    }).eq("id", input.id);
+    if (error) throw new Error(error.message);
+    if (current?.image_public_id && current.image_public_id !== input.asset.publicId) {
+      try { await destroyCloudinaryImage(current.image_public_id); } catch { /* Keep the new image if old cleanup fails. */ }
+    }
+    revalidateCatalog();
+    return { ok: true, message: "Category image saved." };
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) };
+  }
+}
+
+export async function deleteCategoryImage(id: string): Promise<CatalogActionResult> {
+  try {
+    await requireAdmin();
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.from("categories").select("image_public_id").eq("id", id).single();
+    if (error) throw new Error(error.message);
+    if (data?.image_public_id) await destroyCloudinaryImage(data.image_public_id);
+    const { error: updateError } = await supabase.from("categories").update({
+      image_url: null,
+      image_public_id: null,
+      image_alt_text: "",
+    }).eq("id", id);
+    if (updateError) throw new Error(updateError.message);
+    revalidateCatalog();
+    return { ok: true, message: "Category image deleted." };
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) };
+  }
 }
 
 export async function saveCategory(input: CategoryInput): Promise<CatalogActionResult> {

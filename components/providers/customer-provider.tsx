@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Address, CustomerSession, MockOrder } from "@/lib/models";
 import { readStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
+import { syncCustomerOrderStatuses } from "@/app/profile/orders/actions";
 
 type CustomerContextValue = {
   customer: CustomerSession | null;
@@ -30,6 +31,39 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.customer, customer); }, [customer, hydrated]);
   useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.addresses, addresses); }, [addresses, hydrated]);
   useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.orders, orders); }, [orders, hydrated]);
+  const orderIdentity = orders.map((order) => `${order.id}:${order.status}`).join("|");
+  useEffect(() => {
+    if (!hydrated || !customer || !orders.length) return;
+    let active = true;
+    const sync = async () => {
+      const result = await syncCustomerOrderStatuses({
+        phone: customer.phone,
+        orderNumbers: orders.map((order) => order.id),
+      });
+      if (!active || !result.ok) return;
+      const statusByOrder = new Map(result.orders.map((order) => [order.orderNumber, order.status]));
+      setOrders((current) => {
+        let changed = false;
+        const next = current.map((order) => {
+          const status = statusByOrder.get(order.id);
+          if (!status || status === order.status) return order;
+          changed = true;
+          return { ...order, status };
+        });
+        return changed ? next : current;
+      });
+    };
+    void sync();
+    const onFocus = () => void sync();
+    const onVisibility = () => { if (document.visibilityState === "visible") void sync(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [customer, hydrated, orderIdentity]);
 
   const value = useMemo<CustomerContextValue>(() => ({
     customer,
@@ -52,4 +86,3 @@ export function useCustomer() {
   if (!value) throw new Error("useCustomer must be used within CustomerProvider");
   return value;
 }
-

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/components/providers/cart-provider";
@@ -47,8 +47,15 @@ export function Header() {
   const { customer, logout } = useCustomer();
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [announcement, setAnnouncement] = useState("");
+  const [categories, setCategories] = useState<Array<{ name: string; slug: string }>>([]);
+  useEffect(() => {
+    fetch("/api/announcement").then((response) => response.json()).then((data) => setAnnouncement(typeof data.message === "string" ? data.message : "")).catch(() => undefined);
+    fetch("/api/categories").then((response) => response.json()).then((data) => setCategories(Array.isArray(data.categories) ? data.categories : [])).catch(() => undefined);
+  }, []);
   const changeMarket = (next: MarketSlug) => {
     if (next === marketSlug) return;
     if (count > 0 && !window.confirm("Changing your market will clear your shopping bag. Continue?")) return;
@@ -58,6 +65,7 @@ export function Header() {
   };
   return (
     <>
+      {announcement && <aside className="bg-[#d5b56d] px-4 py-2 text-center text-xs font-bold text-[#123d32]" aria-label="Store announcement">{announcement}</aside>}
       <div className="bg-forest py-2 text-center text-xs font-medium tracking-[0.5px] text-white">
         <div className="site-container flex flex-wrap justify-center gap-x-3 gap-y-1 sm:gap-x-[30px]">
           <span>Shopping in {market.name} · {market.currencyCode}</span><span aria-hidden="true">|</span>
@@ -65,15 +73,49 @@ export function Header() {
         </div>
       </div>
       <header className="sticky top-0 z-50 border-b border-[#eee8d5] bg-white/95 backdrop-blur">
-        <div className="site-container flex min-h-[72px] items-center justify-between gap-4">
+        <div className="site-container flex min-h-[72px] items-center justify-between gap-3">
           <Brand marketSlug={marketSlug} />
-          <nav aria-label="Main navigation" className="hidden items-center gap-6 xl:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-4 2xl:gap-6 xl:flex">
             {navigation.map(([label, href]) => {
               const localPath = stripMarketPrefix(pathname);
               const active = href === "/" ? localPath === "/" : href.startsWith("/") && localPath === href;
+              if (label === "Categories") {
+                return (
+                  <div key={label} className="relative">
+                    <button
+                      type="button"
+                      aria-expanded={categoryOpen}
+                      aria-haspopup="menu"
+                      onClick={() => setCategoryOpen((open) => !open)}
+                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium transition-colors hover:text-gold 2xl:text-sm ${categoryOpen ? "text-gold" : "text-[#2b2b2b]"}`}
+                    >
+                      Categories <ChevronDown className={`h-3 w-3 transition-transform ${categoryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </button>
+                    {categoryOpen && (
+                      <div role="menu" className="absolute left-1/2 top-8 z-50 w-64 -translate-x-1/2 rounded-lg border border-[#e8ddc8] bg-white p-2 shadow-xl">
+                        <Link role="menuitem" href={marketHref(marketSlug, "/shop")} onClick={() => setCategoryOpen(false)} className="block rounded-md px-3 py-2 text-sm font-semibold text-forest hover:bg-cream">
+                          View all categories
+                        </Link>
+                        {categories.map((category) => (
+                          <Link
+                            key={category.slug}
+                            role="menuitem"
+                            href={marketHref(marketSlug, `/shop?category=${encodeURIComponent(category.slug)}`)}
+                            onClick={() => setCategoryOpen(false)}
+                            className="block rounded-md px-3 py-2 text-sm text-[#3d4b46] hover:bg-cream hover:text-forest"
+                          >
+                            {category.name}
+                          </Link>
+                        ))}
+                        {!categories.length && <p className="px-3 py-2 text-xs text-muted">No active categories.</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
-                <Link key={label} href={marketHref(marketSlug, href)} className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-gold ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
-                  {label}{label === "Categories" && <ChevronDown className="h-3 w-3" />}
+                <Link key={label} href={marketHref(marketSlug, href)} className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium transition-colors hover:text-gold 2xl:text-sm ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
+                  {label}
                 </Link>
               );
             })}
@@ -122,7 +164,17 @@ export function Header() {
                 {availableMarketSlugs.map((slug) => <option key={slug} value={slug}>{MARKETS[slug].name} ({MARKETS[slug].currencyCode})</option>)}
               </select>
             </label>
-            {navigation.map(([label, href]) => <Link key={label} href={marketHref(marketSlug, href)} onClick={() => setMobileOpen(false)} className="rounded px-3 py-2 text-sm font-medium hover:bg-cream">{label}</Link>)}
+            {navigation.map(([label, href]) => label === "Categories" ? (
+              <div key={label} className="col-span-2">
+                <button type="button" aria-expanded={categoryOpen} onClick={() => setCategoryOpen((open) => !open)} className="flex min-h-11 w-full items-center justify-between rounded px-3 py-2 text-left text-sm font-medium hover:bg-cream">
+                  Categories <ChevronDown className={`h-4 w-4 transition-transform ${categoryOpen ? "rotate-180" : ""}`} />
+                </button>
+                {categoryOpen && <div className="grid grid-cols-2 gap-1 rounded-lg bg-cream p-2">
+                  <Link href={marketHref(marketSlug, "/shop")} onClick={() => { setCategoryOpen(false); setMobileOpen(false); }} className="rounded px-3 py-2 text-sm font-semibold text-forest">View all</Link>
+                  {categories.map((category) => <Link key={category.slug} href={marketHref(marketSlug, `/shop?category=${encodeURIComponent(category.slug)}`)} onClick={() => { setCategoryOpen(false); setMobileOpen(false); }} className="rounded px-3 py-2 text-sm hover:bg-white">{category.name}</Link>)}
+                </div>}
+              </div>
+            ) : <Link key={label} href={marketHref(marketSlug, href)} onClick={() => setMobileOpen(false)} className="rounded px-3 py-2 text-sm font-medium hover:bg-cream">{label}</Link>)}
           </nav>
         )}
       </header>
