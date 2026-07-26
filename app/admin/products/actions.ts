@@ -8,6 +8,7 @@ import type {
   AdminCatalogProduct,
   CatalogActionResult,
   ProductInput,
+  ProductSaveResult,
 } from "@/components/admin/catalog-types";
 
 const UUID_PATTERN =
@@ -152,6 +153,12 @@ export async function getAdminProducts(): Promise<AdminCatalogProduct[]> {
   }));
 }
 
+export async function getAdminProduct(id: string): Promise<AdminCatalogProduct | null> {
+  if (!UUID_PATTERN.test(id)) return null;
+  const products = await getAdminProducts();
+  return products.find((product) => product.id === id) ?? null;
+}
+
 async function replaceChildren(
   supabase: ReturnType<typeof createAdminClient>,
   productId: string,
@@ -257,7 +264,7 @@ async function replaceChildren(
   }
 }
 
-export async function saveProduct(input: ProductInput): Promise<CatalogActionResult> {
+export async function saveProduct(input: ProductInput): Promise<ProductSaveResult> {
   try {
     await requireAdmin();
     const values = validate(input);
@@ -285,7 +292,7 @@ export async function saveProduct(input: ProductInput): Promise<CatalogActionRes
     if (error) throw new Error(error.code === "23505" ? "That product slug is already in use." : error.message);
     await replaceChildren(supabase, data.id, input);
     revalidateProduct(values.slug);
-    return { ok: true, message: `${values.name} was saved.` };
+    return { ok: true, message: `${values.name} was saved.`, id: data.id };
   } catch (error) {
     return { ok: false, error: errorMessage(error) };
   }

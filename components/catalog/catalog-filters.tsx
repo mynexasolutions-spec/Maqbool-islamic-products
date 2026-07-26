@@ -157,7 +157,7 @@ export function CatalogFilters({ results, initialFilters }: CatalogFiltersProps)
             </div>
           </div>
           {results.products.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{results.products.map((product) => <CatalogCard key={product.id} product={product} />)}</div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{results.products.map((product) => <CatalogCard key={product.id} product={product} />)}</div>
           ) : (
             <div className="rounded-xl border border-dashed border-[#cfc5aa] bg-cream px-6 py-16 text-center">
               <p className="font-heading text-2xl text-forest">No matches in this collection</p>

@@ -193,7 +193,7 @@ export async function getCatalogPage(input: CatalogQuery = {}): Promise<CatalogP
       : sort === "name" ? a.name.localeCompare(b.name)
       : sort === "popular" ? b.reviewCount - a.reviewCount
       : Number(b.featured) - Number(a.featured) || b.reviewCount - a.reviewCount);
-    const pageSize = Math.min(48, Math.max(1, Math.trunc(input.pageSize ?? 6)));
+    const pageSize = Math.min(48, Math.max(1, Math.trunc(input.pageSize ?? 8)));
     const total = products.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const page = Math.min(totalPages, Math.max(1, Math.trunc(input.page ?? 1)));

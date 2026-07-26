@@ -15,11 +15,8 @@ const navigation = [
   ["Home", "/"],
   ["Shop", "/shop"],
   ["Categories", "/shop"],
-  ["Best Sellers", "/#best-sellers"],
-  ["Contact Us", "/contact"],
-  ["About Us", "/about"],
-  ["Reviews", "/#reviews"],
-  ["FAQs", "/#faqs"],
+  ["Contact", "/contact"],
+  ["About", "/about"],
 ] as const;
 
 function Brand({ marketSlug }: { marketSlug: MarketSlug }) {
@@ -75,7 +72,7 @@ export function Header() {
       <header className="sticky top-0 z-50 border-b border-[#eee8d5] bg-white/95 backdrop-blur">
         <div className="site-container flex min-h-[72px] items-center justify-between gap-3">
           <Brand marketSlug={marketSlug} />
-          <nav aria-label="Main navigation" className="hidden items-center gap-4 2xl:gap-6 xl:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-4 xl:flex 2xl:gap-6">
             {navigation.map(([label, href]) => {
               const localPath = stripMarketPrefix(pathname);
               const active = href === "/" ? localPath === "/" : href.startsWith("/") && localPath === href;
@@ -87,7 +84,7 @@ export function Header() {
                       aria-expanded={categoryOpen}
                       aria-haspopup="menu"
                       onClick={() => setCategoryOpen((open) => !open)}
-                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium transition-colors hover:text-gold 2xl:text-sm ${categoryOpen ? "text-gold" : "text-[#2b2b2b]"}`}
+                      className={`flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm text-[13px] font-medium transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 2xl:text-sm ${categoryOpen ? "text-gold" : "text-[#2b2b2b]"}`}
                     >
                       Categories <ChevronDown className={`h-3 w-3 transition-transform ${categoryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
@@ -114,13 +111,13 @@ export function Header() {
                 );
               }
               return (
-                <Link key={label} href={marketHref(marketSlug, href)} className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium transition-colors hover:text-gold 2xl:text-sm ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
+                <Link key={label} href={marketHref(marketSlug, href)} className={`flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm text-[13px] font-medium transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 2xl:text-sm ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
                   {label}
                 </Link>
               );
             })}
           </nav>
-          <div className="flex items-center gap-3 sm:gap-5">
+          <div className="flex items-center gap-1 sm:gap-3">
             <label className="hidden text-xs font-semibold text-forest sm:block">
               <span className="sr-only">Shopping market</span>
               <select
@@ -132,11 +129,11 @@ export function Header() {
                 {availableMarketSlugs.map((slug) => <option key={slug} value={slug}>{MARKETS[slug].name} ({MARKETS[slug].currencyCode})</option>)}
               </select>
             </label>
-            <button aria-label="Search products" onClick={() => setSearchOpen(true)} className="transition-colors hover:text-gold"><Search className="h-[18px] w-[18px]" /></button>
+            <button aria-label="Search products" onClick={() => setSearchOpen(true)} className="grid h-11 w-11 place-items-center rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"><Search className="h-[18px] w-[18px]" /></button>
             <div className="relative">
-              <button aria-label="Account menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)} className="transition-colors hover:text-gold"><UserRound className="h-[18px] w-[18px]" /></button>
+              <button aria-label="Account menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)} className="grid h-11 w-11 place-items-center rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"><UserRound className="h-[18px] w-[18px]" /></button>
               {accountOpen && (
-                <div className="absolute right-0 top-8 w-52 rounded-lg border bg-white p-2 text-sm shadow-xl">
+                <div className="absolute right-0 top-12 w-52 rounded-lg border bg-white p-2 text-sm shadow-xl">
                   {customer ? (
                     <>
                       <p className="px-3 py-2 text-xs text-muted">Assalamu alaikum, <strong className="block text-sm text-forest">{customer.name}</strong></p>
@@ -148,11 +145,11 @@ export function Header() {
                 </div>
               )}
             </div>
-            <button aria-label={`Shopping bag with ${count} items`} onClick={() => setOpen(true)} className="relative transition-colors hover:text-gold">
+            <button aria-label={`Shopping bag with ${count} items`} onClick={() => setOpen(true)} className="relative grid h-11 w-11 place-items-center rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
               <ShoppingBag className="h-[18px] w-[18px]" />
               {count > 0 && <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[0.65rem] text-white">{count}</span>}
             </button>
-            <button aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)} className="xl:hidden">
+            <button aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)} className="grid h-11 w-11 place-items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold xl:hidden">
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
@@ -166,8 +163,8 @@ export function Header() {
             </label>
             {navigation.map(([label, href]) => label === "Categories" ? (
               <div key={label} className="col-span-2">
-                <button type="button" aria-expanded={categoryOpen} onClick={() => setCategoryOpen((open) => !open)} className="flex min-h-11 w-full items-center justify-between rounded px-3 py-2 text-left text-sm font-medium hover:bg-cream">
-                  Categories <ChevronDown className={`h-4 w-4 transition-transform ${categoryOpen ? "rotate-180" : ""}`} />
+                <button type="button" aria-expanded={categoryOpen} onClick={() => setCategoryOpen((open) => !open)} className="flex min-h-11 w-full items-center justify-between rounded px-3 py-2 text-left text-sm font-medium hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+                  Categories <ChevronDown className={`h-4 w-4 transition-transform ${categoryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </button>
                 {categoryOpen && <div className="grid grid-cols-2 gap-1 rounded-lg bg-cream p-2">
                   <Link href={marketHref(marketSlug, "/shop")} onClick={() => { setCategoryOpen(false); setMobileOpen(false); }} className="rounded px-3 py-2 text-sm font-semibold text-forest">View all</Link>

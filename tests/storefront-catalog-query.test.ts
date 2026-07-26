@@ -21,7 +21,7 @@ describe("storefront catalog query parsing", () => {
       minRating: 4.5,
       sort: "rating",
     });
-    expect(parsed.query).toMatchObject({ minPrice: 300, maxPrice: 1500, page: 2, pageSize: 6 });
+    expect(parsed.query).toMatchObject({ minPrice: 300, maxPrice: 1500, page: 2, pageSize: 8 });
   });
 
   it("safely defaults malformed numeric and sort values", () => {

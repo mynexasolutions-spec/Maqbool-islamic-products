@@ -38,7 +38,7 @@ export function parseCatalogSearchParams(params: ShopSearchParams) {
       minRating,
       sort,
       page,
-      pageSize: 6,
+      pageSize: 8,
     },
   };
 }

@@ -189,7 +189,7 @@ export default async function HomePage() {
                 </div>
                 <div className="bg-white p-[15px]">
                   <h3 className="font-heading text-lg text-forest">{title}</h3>
-                  <span className="text-xs font-semibold text-muted">Shop Now →</span>
+                  <span className="text-xs font-semibold text-muted">Show Now</span>
                 </div>
               </Link>
             ))}

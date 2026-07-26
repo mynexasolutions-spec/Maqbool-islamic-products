@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
@@ -12,13 +13,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { deleteProduct, saveProduct } from "@/app/admin/products/actions";
+import { deleteProduct } from "@/app/admin/products/actions";
 import type {
   AdminCatalogCategory,
   AdminCatalogFaq,
   AdminCatalogProduct,
   AdminCatalogVariant,
   ProductInput,
+  ProductSaveResult,
 } from "@/components/admin/catalog-types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,37 +31,13 @@ import { Table } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { AdminPageHeader, AdminPanel, EmptyAdminState, StatusPill } from "./admin-ui";
 import { ProductImageManager } from "./product-image-manager";
+import { parseProductDraft, serializeProductDraft } from "@/lib/admin-product-draft";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
 });
-
-function emptyProduct(): AdminCatalogProduct {
-  return {
-    id: "new",
-    categoryId: "",
-    categoryName: "",
-    name: "",
-    slug: "",
-    description: "",
-    price: 0,
-    compareAtPrice: null,
-    rating: 0,
-    reviewCount: 0,
-    badge: "",
-    isFeatured: false,
-    isActive: true,
-    displayOrder: 0,
-    seoTitle: "",
-    seoDescription: "",
-    variants: [],
-    information: [],
-    faqs: [],
-    images: [],
-  };
-}
 
 export function ProductManager({
   initialProducts,
@@ -72,7 +50,6 @@ export function ProductManager({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
-  const [editing, setEditing] = useState<AdminCatalogProduct | null>(null);
   const [deleting, setDeleting] = useState<AdminCatalogProduct | null>(null);
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
@@ -92,20 +69,6 @@ export function ProductManager({
       }),
     [category, initialProducts, query, status],
   );
-
-  function persist(product: ProductInput) {
-    setActionError("");
-    startTransition(async () => {
-      const result = await saveProduct(product);
-      if (!result.ok) {
-        setActionError(result.error);
-        return;
-      }
-      setEditing(null);
-      setMessage(result.message);
-      router.refresh();
-    });
-  }
 
   function remove() {
     if (!deleting) return;
@@ -130,18 +93,14 @@ export function ProductManager({
         title="Products"
         description="Create and maintain products, pricing, variants, stock, and storefront content."
         action={
-          <Button
-            onClick={() => {
-              setActionError("");
-              setEditing(emptyProduct());
-            }}
-            className="min-h-11 bg-[#123d32] hover:bg-[#1a5445]"
-          >
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add product
+          <Button asChild className="min-h-11 bg-[#123d32] hover:bg-[#1a5445]">
+            <Link href="/admin/products/new">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add product
+            </Link>
           </Button>
         }
       />
-      {actionError && !editing && !deleting && (
+      {actionError && !deleting && (
         <p role="alert" className="mb-4 rounded-lg border border-[#edc8bf] bg-[#fff1ee] p-3 text-sm text-[#8d3426]">
           {actionError}
         </p>
@@ -211,16 +170,13 @@ export function ProductManager({
                     <td className="px-4 py-4"><StatusPill active={product.isActive} /></td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            setActionError("");
-                            setEditing(product);
-                          }}
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
                           className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[#35584d] hover:bg-[#e8f0ec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]"
                           aria-label={`Edit ${product.name}`}
                         >
                           <Edit3 className="h-4 w-4" aria-hidden="true" />
-                        </button>
+                        </Link>
                         <button
                           onClick={() => {
                             setActionError("");
@@ -243,23 +199,6 @@ export function ProductManager({
         )}
       </AdminPanel>
       <Dialog
-        open={Boolean(editing)}
-        onClose={() => !isPending && setEditing(null)}
-        title={editing?.name ? `Edit ${editing.name}` : "Add product"}
-      >
-        {editing && (
-          <ProductForm
-            key={editing.id}
-            product={editing}
-            categories={categories}
-            isPending={isPending}
-            actionError={actionError}
-            onCancel={() => setEditing(null)}
-            onSave={persist}
-          />
-        )}
-      </Dialog>
-      <Dialog
         open={Boolean(deleting)}
         onClose={() => !isPending && setDeleting(null)}
         title="Delete product?"
@@ -279,26 +218,80 @@ export function ProductManager({
   );
 }
 
-function ProductForm({
+function editableProduct(product: AdminCatalogProduct): ProductInput {
+  const { categoryName: _categoryName, images: _images, ...input } = product;
+  return input;
+}
+
+export function ProductForm({
   product,
   categories,
-  isPending,
-  actionError,
+  storageKey,
+  initialMessage = "",
   onCancel,
   onSave,
 }: {
   product: AdminCatalogProduct;
   categories: AdminCatalogCategory[];
-  isPending: boolean;
-  actionError: string;
+  storageKey: string;
+  initialMessage?: string;
   onCancel: () => void;
-  onSave: (product: ProductInput) => void;
+  onSave: (product: ProductInput) => Promise<ProductSaveResult>;
 }) {
   const [draft, setDraft] = useState(() => structuredClone(product));
   const [validationError, setValidationError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [message, setMessage] = useState(initialMessage);
+  const [isPending, setIsPending] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [restored, setRestored] = useState(false);
+  const baselineRef = useRef(JSON.stringify(editableProduct(product)));
+  const currentInput = editableProduct(draft);
+  const currentSerialized = JSON.stringify(currentInput);
+  const dirty = currentSerialized !== baselineRef.current;
 
-  function submit(event: React.FormEvent) {
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = parseProductDraft(stored, product.id);
+        if (parsed) {
+          setDraft({ ...structuredClone(product), ...parsed });
+          setRestored(true);
+          setMessage("Unsaved draft restored.");
+        } else {
+          window.localStorage.removeItem(storageKey);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    } finally {
+      setHydrated(true);
+    }
+  }, [product, storageKey]);
+
+  useEffect(() => {
+    if (!hydrated || !dirty || isPending) return;
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(storageKey, serializeProductDraft(currentInput));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [currentInput, dirty, hydrated, isPending, storageKey]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
+    setActionError("");
+    setMessage("");
     const slug = draft.slug
       .trim()
       .toLowerCase()
@@ -312,12 +305,49 @@ function ProductForm({
       setValidationError("Every variant needs a unique SKU.");
       return;
     }
-    const { categoryName: _categoryName, images: _images, ...input } = draft;
-    onSave({ ...input, name: draft.name.trim(), slug });
+    setValidationError("");
+    const input = { ...editableProduct(draft), name: draft.name.trim(), slug };
+    setIsPending(true);
+    const result = await onSave(input);
+    setIsPending(false);
+    if (!result.ok) {
+      setActionError(result.error);
+      return;
+    }
+    baselineRef.current = JSON.stringify(input);
+    window.localStorage.removeItem(storageKey);
+    setRestored(false);
+    setMessage(result.message);
+  }
+
+  function discardRestoredDraft() {
+    window.localStorage.removeItem(storageKey);
+    setDraft(structuredClone(product));
+    baselineRef.current = JSON.stringify(editableProduct(product));
+    setRestored(false);
+    setMessage("Restored draft discarded.");
+    setValidationError("");
+    setActionError("");
+  }
+
+  function cancel() {
+    if (dirty && !window.confirm("Discard your unsaved product changes?")) return;
+    window.localStorage.removeItem(storageKey);
+    onCancel();
   }
 
   return (
     <form onSubmit={submit} className="space-y-7" noValidate>
+      {message && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b9d8c9] bg-[#edf7f1] p-3 text-sm text-[#245844]">
+          <span>{message}</span>
+          {restored && (
+            <button type="button" onClick={discardRestoredDraft} className="min-h-11 rounded-md px-3 font-bold text-[#8d3426] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]">
+              Discard restored draft
+            </button>
+          )}
+        </div>
+      )}
       {(validationError || actionError) && (
         <p role="alert" className="rounded-lg bg-[#fff1ee] p-3 text-sm text-[#8d3426]">
           {validationError || actionError}
@@ -464,8 +494,8 @@ function ProductForm({
       )}
 
       <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4">
-        <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={isPending} aria-busy={isPending} className="bg-[#123d32] hover:bg-[#1a5445]">
+        <Button type="button" variant="outline" disabled={isPending} onClick={cancel} className="min-h-11">Cancel</Button>
+        <Button type="submit" disabled={isPending} aria-busy={isPending} className="min-h-11 bg-[#123d32] hover:bg-[#1a5445]">
           {isPending ? "Saving…" : "Save product"}
         </Button>
       </div>

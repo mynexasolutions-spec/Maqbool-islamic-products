@@ -74,7 +74,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   const currentLabel = navGroups.flatMap((group) => group.items)
-    .find((item) => item.href === pathname)?.label ?? "Admin";
+    .find((item) => item.href === "/admin" ? pathname === item.href : pathname.startsWith(item.href))?.label ?? "Admin";
 
   const nav = (
     <>

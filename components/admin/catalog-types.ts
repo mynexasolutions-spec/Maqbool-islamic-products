@@ -77,5 +77,34 @@ export type CatalogActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
+export type ProductSaveResult =
+  | { ok: true; message: string; id: string }
+  | { ok: false; error: string };
+
 export type CategoryInput = Omit<AdminCatalogCategory, "productCount">;
 export type ProductInput = Omit<AdminCatalogProduct, "categoryName" | "images">;
+
+export function createEmptyAdminProduct(): AdminCatalogProduct {
+  return {
+    id: "new",
+    categoryId: "",
+    categoryName: "",
+    name: "",
+    slug: "",
+    description: "",
+    price: 0,
+    compareAtPrice: null,
+    rating: 0,
+    reviewCount: 0,
+    badge: "",
+    isFeatured: false,
+    isActive: true,
+    displayOrder: 0,
+    seoTitle: "",
+    seoDescription: "",
+    variants: [],
+    information: [],
+    faqs: [],
+    images: [],
+  };
+}
