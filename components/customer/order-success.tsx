@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Check, PackageCheck, ShoppingBag } from "lucide-react";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { formatPrice } from "@/lib/commerce";
+import type { MarketSlug } from "@/lib/markets";
 
 export function OrderSuccess() {
   const params = useParams<{ id: string }>();
@@ -24,7 +25,7 @@ export function OrderSuccess() {
           <div className="p-7 sm:p-10">
             <div className="grid gap-4 rounded-xl bg-cream p-5 text-left sm:grid-cols-2">
               <div><p className="text-xs font-bold uppercase tracking-wide text-muted">Order number</p><p className="mt-1 font-heading text-lg text-forest">#{id}</p></div>
-              <div><p className="text-xs font-bold uppercase tracking-wide text-muted">Order total</p><p className="mt-1 font-heading text-lg text-forest">{order ? formatPrice(order.total) : "Saved locally"}</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-wide text-muted">Order total</p><p className="mt-1 font-heading text-lg text-forest">{order ? formatPrice(order.total, (order.marketSlug ?? "in") as MarketSlug) : "Saved locally"}</p></div>
               {order && <><div><p className="text-xs font-bold uppercase tracking-wide text-muted">Payment</p><p className="mt-1 text-sm font-semibold text-forest">{order.paymentMethod === "cod" ? "Cash on delivery" : "Mock online payment"}</p></div><div><p className="text-xs font-bold uppercase tracking-wide text-muted">Delivering to</p><p className="mt-1 text-sm font-semibold text-forest">{order.address.city}, {order.address.pincode}</p></div></>}
             </div>
             {!order && <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">Order details are stored in this browser and are not available in the current local session.</p>}

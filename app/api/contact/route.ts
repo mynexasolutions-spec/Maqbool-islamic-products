@@ -12,12 +12,12 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
     const { error } = await supabase.from("contact_messages").insert({
-      full_name: body.full_name,
-      email: body.email,
-      phone: body.phone || null,
-      order_id: body.order_id || null,
-      subject: body.subject,
-      message: body.message,
+      full_name: String(body.full_name),
+      email: String(body.email),
+      phone: typeof body.phone === "string" && body.phone ? body.phone : null,
+      order_id: typeof body.order_id === "string" && body.order_id ? body.order_id : null,
+      subject: String(body.subject),
+      message: String(body.message),
     });
 
     if (error) throw error;

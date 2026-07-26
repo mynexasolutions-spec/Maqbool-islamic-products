@@ -1,5 +1,7 @@
 import { CategoryManager } from "@/components/admin/category-manager";
+import { getAdminCategories } from "./actions";
 
-export default function AdminCategoriesPage() {
-  return <CategoryManager />;
+export default async function AdminCategoriesPage() {
+  const categories = await getAdminCategories();
+  return <CategoryManager initialCategories={categories} />;
 }

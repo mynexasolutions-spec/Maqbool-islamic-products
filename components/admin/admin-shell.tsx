@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FolderTree,
   HelpCircle,
+  Images,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -21,6 +22,7 @@ import {
   Tags,
   Truck,
   Users,
+  Globe2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,7 @@ const navGroups = [
       { href: "/admin", label: "Overview", icon: LayoutDashboard },
       { href: "/admin/products", label: "Products", icon: ShoppingBag },
       { href: "/admin/categories", label: "Categories", icon: FolderTree },
+      { href: "/admin/markets", label: "Markets & pricing", icon: Globe2 },
       { href: "/admin/orders", label: "Orders", icon: ClipboardList },
       { href: "/admin/customers", label: "Customers", icon: Users },
     ],
@@ -45,6 +48,8 @@ const navGroups = [
       { href: "/admin/coupons", label: "Coupons", icon: Tags },
       { href: "/admin/shipping", label: "Shipping", icon: Truck },
       { href: "/admin/announcements", label: "Announcements", icon: Bell },
+      { href: "/admin/homepage", label: "Homepage", icon: Images },
+      { href: "/admin/faqs", label: "Global FAQs", icon: HelpCircle },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },

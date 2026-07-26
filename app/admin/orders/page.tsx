@@ -1,5 +1,6 @@
 import { OrderManager } from "@/components/admin/order-manager";
+import { getAdminOrders } from "./actions";
 
-export default function AdminOrdersPage() {
-  return <OrderManager />;
+export default async function AdminOrdersPage() {
+  return <OrderManager initialOrders={await getAdminOrders()} />;
 }

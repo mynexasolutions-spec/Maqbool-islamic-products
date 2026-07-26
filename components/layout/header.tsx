@@ -1,15 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/components/providers/cart-provider";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { CartDrawer } from "@/components/cart/cart-drawer";
-import { catalogProducts } from "@/data/catalog-products";
+import { useMarket } from "@/components/providers/market-provider";
+import { MARKET_COOKIE, MARKETS, marketHref, stripMarketPrefix, type MarketSlug } from "@/lib/markets";
 
 const navigation = [
   ["Home", "/"],
@@ -22,9 +22,9 @@ const navigation = [
   ["FAQs", "/#faqs"],
 ] as const;
 
-function Brand() {
+function Brand({ marketSlug }: { marketSlug: MarketSlug }) {
   return (
-    <Link href="/" className="flex min-w-fit items-center gap-2.5" aria-label="Maqbool Islamic Products home">
+    <Link href={marketHref(marketSlug, "/")} className="flex min-w-fit items-center gap-2.5" aria-label="Maqbool Islamic Products home">
       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9 fill-forest sm:h-10 sm:w-10">
         <path d="M12 2 2 22h20L12 2Zm0 3.99L19.53 19H4.47L12 5.99Z" />
       </svg>
@@ -42,41 +42,54 @@ function Brand() {
 
 export function Header() {
   const pathname = usePathname();
-  const { count, setOpen } = useCart();
+  const { count, setOpen, clear } = useCart();
+  const { marketSlug, market, availableMarketSlugs } = useMarket();
   const { customer, logout } = useCustomer();
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const results = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return [];
-    return catalogProducts.filter((product) =>
-      `${product.name} ${product.category}`.toLowerCase().includes(normalized)).slice(0, 6);
-  }, [query]);
-
+  const changeMarket = (next: MarketSlug) => {
+    if (next === marketSlug) return;
+    if (count > 0 && !window.confirm("Changing your market will clear your shopping bag. Continue?")) return;
+    clear();
+    document.cookie = `${MARKET_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+    window.location.assign(marketHref(next, stripMarketPrefix(pathname)));
+  };
   return (
     <>
       <div className="bg-forest py-2 text-center text-xs font-medium tracking-[0.5px] text-white">
         <div className="site-container flex flex-wrap justify-center gap-x-3 gap-y-1 sm:gap-x-[30px]">
-          <span>FREE SHIPPING on orders above ₹999</span><span aria-hidden="true">|</span>
-          <span>COD Available</span><span aria-hidden="true">|</span><span>Easy 7-Day Returns</span>
+          <span>Shopping in {market.name} · {market.currencyCode}</span><span aria-hidden="true">|</span>
+          <span>Local tax and shipping at checkout</span><span aria-hidden="true">|</span><span>Easy 7-Day Returns</span>
         </div>
       </div>
       <header className="sticky top-0 z-50 border-b border-[#eee8d5] bg-white/95 backdrop-blur">
         <div className="site-container flex min-h-[72px] items-center justify-between gap-4">
-          <Brand />
+          <Brand marketSlug={marketSlug} />
           <nav aria-label="Main navigation" className="hidden items-center gap-6 xl:flex">
             {navigation.map(([label, href]) => {
-              const active = href === "/" ? pathname === "/" : href.startsWith("/") && pathname === href;
+              const localPath = stripMarketPrefix(pathname);
+              const active = href === "/" ? localPath === "/" : href.startsWith("/") && localPath === href;
               return (
-                <Link key={label} href={href} className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-gold ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
+                <Link key={label} href={marketHref(marketSlug, href)} className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-gold ${active ? "text-gold" : "text-[#2b2b2b]"}`}>
                   {label}{label === "Categories" && <ChevronDown className="h-3 w-3" />}
                 </Link>
               );
             })}
           </nav>
           <div className="flex items-center gap-3 sm:gap-5">
+            <label className="hidden text-xs font-semibold text-forest sm:block">
+              <span className="sr-only">Shopping market</span>
+              <select
+                value={marketSlug}
+                onChange={(event) => changeMarket(event.target.value as MarketSlug)}
+                className="min-h-11 rounded-md border border-[#d8d0bc] bg-white px-2 text-xs font-semibold text-forest outline-none focus:ring-2 focus:ring-gold"
+                aria-label="Shopping market"
+              >
+                {availableMarketSlugs.map((slug) => <option key={slug} value={slug}>{MARKETS[slug].name} ({MARKETS[slug].currencyCode})</option>)}
+              </select>
+            </label>
             <button aria-label="Search products" onClick={() => setSearchOpen(true)} className="transition-colors hover:text-gold"><Search className="h-[18px] w-[18px]" /></button>
             <div className="relative">
               <button aria-label="Account menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)} className="transition-colors hover:text-gold"><UserRound className="h-[18px] w-[18px]" /></button>
@@ -85,11 +98,11 @@ export function Header() {
                   {customer ? (
                     <>
                       <p className="px-3 py-2 text-xs text-muted">Assalamu alaikum, <strong className="block text-sm text-forest">{customer.name}</strong></p>
-                      <Link href="/profile" className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My profile</Link>
-                      <Link href="/profile/orders" className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My orders</Link>
+                      <Link href={marketHref(marketSlug, "/profile")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My profile</Link>
+                      <Link href={marketHref(marketSlug, "/profile/orders")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My orders</Link>
                       <button onClick={() => { logout(); setAccountOpen(false); }} className="w-full rounded px-3 py-2 text-left text-[#a53d3d] hover:bg-cream">Log out</button>
                     </>
-                  ) : <Link href="/login" className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>Sign in with phone</Link>}
+                  ) : <Link href={marketHref(marketSlug, "/login")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>Sign in with phone</Link>}
                 </div>
               )}
             </div>
@@ -104,7 +117,12 @@ export function Header() {
         </div>
         {mobileOpen && (
           <nav aria-label="Mobile navigation" className="site-container grid grid-cols-2 gap-1 border-t py-3 xl:hidden">
-            {navigation.map(([label, href]) => <Link key={label} href={href} onClick={() => setMobileOpen(false)} className="rounded px-3 py-2 text-sm font-medium hover:bg-cream">{label}</Link>)}
+            <label className="col-span-2 px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">Shopping market
+              <select value={marketSlug} onChange={(event) => changeMarket(event.target.value as MarketSlug)} className="mt-2 min-h-11 w-full rounded border border-[#d8d0bc] bg-white px-3 text-sm text-forest">
+                {availableMarketSlugs.map((slug) => <option key={slug} value={slug}>{MARKETS[slug].name} ({MARKETS[slug].currencyCode})</option>)}
+              </select>
+            </label>
+            {navigation.map(([label, href]) => <Link key={label} href={marketHref(marketSlug, href)} onClick={() => setMobileOpen(false)} className="rounded px-3 py-2 text-sm font-medium hover:bg-cream">{label}</Link>)}
           </nav>
         )}
       </header>
@@ -116,19 +134,16 @@ export function Header() {
               <h2 className="font-heading text-3xl">Find something meaningful</h2>
               <button onClick={() => setSearchOpen(false)} aria-label="Close search"><X /></button>
             </div>
-            <div className="relative">
-              <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted" />
-              <Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Quran, prayer mats, attars…" className="h-12 bg-white pl-12 text-base text-[#2b2b2b]" />
-            </div>
-            <div className="mt-4 overflow-hidden rounded-lg bg-white text-[#2b2b2b]">
-              {query && results.length === 0 && <p className="p-5 text-sm text-muted">No products match “{query}”.</p>}
-              {results.map((product) => (
-                <Link key={product.name} href={`/shop/${product.slug}`} onClick={() => { setSearchOpen(false); setQuery(""); }} className="flex items-center gap-4 border-b p-4 last:border-0 hover:bg-cream">
-                  <Image src={product.images[0]?.src || "/quran.webp"} alt="" width={48} height={48} className="h-12 w-12 rounded object-cover" />
-                  <span><strong className="block text-sm text-forest">{product.name}</strong><span className="text-xs text-muted">{product.category}</span></span>
-                </Link>
-              ))}
-            </div>
+            <form action={marketHref(marketSlug, "/shop")} method="get" onSubmit={() => setSearchOpen(false)} className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted" aria-hidden="true" />
+                <Input name="q" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Quran, prayer mats, attars…" className="h-12 bg-white pl-12 text-base text-[#2b2b2b]" />
+              </div>
+              <button type="submit" disabled={!query.trim()} className="min-h-12 rounded bg-gold px-6 text-sm font-bold text-forest disabled:cursor-not-allowed disabled:opacity-50">
+                Search catalog
+              </button>
+            </form>
+            <p className="mt-4 text-sm text-white/75">Searches use the current Maqbool catalog and open matching products in the shop.</p>
           </div>
         </div>
       )}

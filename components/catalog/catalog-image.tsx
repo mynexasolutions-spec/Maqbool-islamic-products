@@ -18,7 +18,7 @@ export function CatalogImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
+  if (!src || failed) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-cream text-muted" role="img" aria-label={`${alt} — image unavailable`}>
         <ImageOff className="h-7 w-7 text-gold" aria-hidden="true" />

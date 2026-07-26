@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgePercent, Check, CreditCard, LoaderCircle, PackageCheck, ShieldCheck, Truck } from "lucide-react";
@@ -8,11 +8,14 @@ import { useCart } from "@/components/providers/cart-provider";
 import { useCustomer } from "@/components/providers/customer-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { Input } from "@/components/ui/input";
-import { calculateCheckout, COUPON_CODE, formatPrice, FREE_SHIPPING_THRESHOLD } from "@/lib/commerce";
+import { calculateMarketCheckout, COUPON_CODE, formatPrice } from "@/lib/commerce";
 import type { Address, MockOrder, PaymentMethod } from "@/lib/models";
+import { useMarket } from "@/components/providers/market-provider";
+import { marketHref } from "@/lib/markets";
+import { placeOrder as persistOrder } from "@/app/checkout/actions";
 
-function blankAddress(name: string, phone: string): Address {
-  return { id: "", label: "Home", name, phone, line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false };
+function blankAddress(name: string, phone: string, countryCode: string): Address {
+  return { id: "", label: "Home", name, phone, line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false, countryCode };
 }
 
 export function CheckoutForm() {
@@ -20,7 +23,8 @@ export function CheckoutForm() {
   const { items, clear } = useCart();
   const { customer, addresses, saveAddress, addOrder } = useCustomer();
   const { toast } = useToast();
-  const [address, setAddress] = useState<Address>(() => blankAddress(customer?.name ?? "", customer?.phone ?? ""));
+  const { marketSlug, market, checkoutSettings } = useMarket();
+  const [address, setAddress] = useState<Address>(() => blankAddress(customer?.name ?? "", customer?.phone ?? "", market.countryCode));
   const [selectedAddress, setSelectedAddress] = useState("new");
   const [saveForLater, setSaveForLater] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
@@ -29,15 +33,19 @@ export function CheckoutForm() {
   const [couponMessage, setCouponMessage] = useState("");
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
-  const totals = useMemo(() => calculateCheckout(items, appliedCoupon, paymentMethod), [appliedCoupon, items, paymentMethod]);
+  const totals = useMemo(() => calculateMarketCheckout(items, appliedCoupon, paymentMethod, checkoutSettings), [appliedCoupon, checkoutSettings, items, paymentMethod]);
+  const marketAddresses = addresses.filter((item) => !item.countryCode || item.countryCode === market.countryCode);
+  useEffect(() => {
+    if (checkoutSettings && !checkoutSettings.codEnabled && checkoutSettings.onlineEnabled) setPaymentMethod("online");
+  }, [checkoutSettings]);
 
   function chooseAddress(id: string) {
     setSelectedAddress(id);
     if (id === "new") {
-      setAddress(blankAddress(customer?.name ?? "", customer?.phone ?? ""));
+      setAddress(blankAddress(customer?.name ?? "", customer?.phone ?? "", market.countryCode));
       return;
     }
-    const saved = addresses.find((item) => item.id === id);
+    const saved = marketAddresses.find((item) => item.id === id);
     if (saved) setAddress({ ...saved });
   }
 
@@ -63,33 +71,59 @@ export function CheckoutForm() {
       setError("Complete all required delivery fields.");
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(address.phone) || !/^\d{6}$/.test(address.pincode)) {
-      setError("Enter a valid 10-digit phone number and 6-digit pincode.");
+    const phoneDigits = address.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setError("Enter a valid mobile number.");
       return;
     }
     if (!customer) {
-      router.replace("/login?returnTo=%2Fcheckout");
+      router.replace(`${marketHref(marketSlug, "/login")}?returnTo=${encodeURIComponent(marketHref(marketSlug, "/checkout"))}`);
+      return;
+    }
+    if (!checkoutSettings) {
+      setError("Checkout settings are unavailable for this market.");
       return;
     }
 
     setProcessing(true);
-    await new Promise((resolve) => window.setTimeout(resolve, paymentMethod === "online" ? 900 : 450));
-    const finalAddress = { ...address, id: address.id || `addr-${Date.now()}` };
+    const finalAddress = { ...address, countryCode: market.countryCode, id: address.id || `addr-${Date.now()}` };
+    const result = await persistOrder({
+      marketSlug,
+      items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+      customer,
+      address: finalAddress,
+      paymentMethod,
+      coupon: appliedCoupon,
+    });
+    if (!result.ok) {
+      setError(result.error);
+      setProcessing(false);
+      return;
+    }
     if (saveForLater && selectedAddress === "new") saveAddress(finalAddress);
     const order: MockOrder = {
-      id: `MQB${Date.now().toString().slice(-8)}`,
-      createdAt: new Date().toISOString(),
+      id: result.order.orderNumber,
+      createdAt: result.order.createdAt,
       customer,
       address: finalAddress,
       items: items.map((item) => ({ ...item })),
-      ...totals,
+      subtotal: result.order.subtotal,
+      shipping: result.order.shipping,
+      discount: result.order.discount,
+      codCharge: result.order.codFee,
+      tax: result.order.tax,
+      taxLabel: result.order.taxLabel,
+      total: result.order.total,
+      marketSlug,
+      currencyCode: result.order.currencyCode,
+      paymentStatus: result.order.paymentStatus,
       paymentMethod,
       status: "confirmed",
     };
     addOrder(order);
     clear();
     toast("Order placed successfully.");
-    router.replace(`/order-success/${order.id}`);
+    router.replace(marketHref(marketSlug, `/order-success/${order.id}`));
   }
 
   if (!items.length) {
@@ -99,7 +133,7 @@ export function CheckoutForm() {
           <PackageCheck className="mx-auto h-10 w-10 text-gold" aria-hidden="true" />
           <h1 className="mt-5 font-heading text-3xl text-forest">Your bag is empty</h1>
           <p className="mt-3 text-sm leading-6 text-muted">Add something meaningful before beginning checkout.</p>
-          <Link href="/shop" className="mt-7 inline-flex min-h-11 items-center rounded-md bg-forest px-6 text-sm font-semibold text-white">Browse products</Link>
+          <Link href={marketHref(marketSlug, "/shop")} className="mt-7 inline-flex min-h-11 items-center rounded-md bg-forest px-6 text-sm font-semibold text-white">Browse products</Link>
         </div>
       </div>
     );
@@ -110,11 +144,12 @@ export function CheckoutForm() {
       <div className="space-y-7">
         <section className="rounded-xl border border-[#e8ddc8] bg-white p-6 sm:p-8" aria-labelledby="delivery-heading">
           <div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-forest text-sm font-bold text-white">1</span><div><p className="text-xs font-bold uppercase tracking-[.15em] text-gold">Where should it go?</p><h1 id="delivery-heading" className="font-heading text-2xl text-forest">Delivery address</h1></div></div>
-          {addresses.length > 0 && (
+          <p className="mt-3 text-sm text-muted">Delivering within <strong className="text-forest">{market.name}</strong>. The address country must match this market.</p>
+          {marketAddresses.length > 0 && (
             <fieldset className="mt-7">
               <legend className="text-sm font-semibold text-forest">Choose a saved address</legend>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {addresses.map((saved) => (
+                {marketAddresses.map((saved) => (
                   <label key={saved.id} className={`cursor-pointer rounded-lg border p-4 text-sm ${selectedAddress === saved.id ? "border-forest bg-cream" : "border-[#e8ddc8]"}`}>
                     <input type="radio" name="saved-address" value={saved.id} checked={selectedAddress === saved.id} onChange={() => chooseAddress(saved.id)} className="mr-2 accent-forest" />
                     <strong className="text-forest">{saved.label}</strong>
@@ -131,7 +166,7 @@ export function CheckoutForm() {
           <div className="mt-7 grid gap-4 sm:grid-cols-2">
             {[
               ["name", "Recipient name", "Full name"],
-              ["phone", "Mobile number", "10-digit number"],
+              ["phone", "Mobile number", "Include country/area code"],
               ["line1", "Address line 1", "House number and street"],
               ["line2", "Address line 2 (optional)", "Area or landmark"],
               ["city", "City", "City"],
@@ -140,7 +175,7 @@ export function CheckoutForm() {
             ].map(([field, label, placeholder]) => (
               <label key={field} className={`text-sm font-semibold text-forest ${field === "line1" || field === "line2" ? "sm:col-span-2" : ""}`}>
                 {label}
-                <Input className="mt-2 font-normal text-[#2b2b2b]" value={String(address[field as keyof Address] ?? "")} onChange={(event) => setAddress({ ...address, [field]: field === "phone" || field === "pincode" ? event.target.value.replace(/\D/g, "") : event.target.value })} maxLength={field === "phone" ? 10 : field === "pincode" ? 6 : undefined} inputMode={field === "phone" || field === "pincode" ? "numeric" : undefined} autoComplete={field === "name" ? "name" : field === "phone" ? "tel-national" : field === "pincode" ? "postal-code" : field === "city" ? "address-level2" : field === "state" ? "address-level1" : "street-address"} placeholder={placeholder} />
+                <Input className="mt-2 font-normal text-[#2b2b2b]" value={String(address[field as keyof Address] ?? "")} onChange={(event) => setAddress({ ...address, [field]: field === "phone" ? event.target.value.replace(/[^\d+]/g, "") : event.target.value })} maxLength={field === "phone" ? 16 : field === "pincode" ? 12 : undefined} inputMode={field === "phone" ? "tel" : undefined} autoComplete={field === "name" ? "name" : field === "phone" ? "tel" : field === "pincode" ? "postal-code" : field === "city" ? "address-level2" : field === "state" ? "address-level1" : "street-address"} placeholder={field === "pincode" && (marketSlug === "dubai" || marketSlug === "qa") ? "Optional postal code" : placeholder} />
               </label>
             ))}
           </div>
@@ -152,12 +187,12 @@ export function CheckoutForm() {
           <fieldset className="mt-7 grid gap-3">
             <legend className="sr-only">Choose payment method</legend>
             <label className={`flex cursor-pointer items-start gap-4 rounded-lg border p-5 ${paymentMethod === "cod" ? "border-forest bg-cream" : "border-[#e8ddc8]"}`}>
-              <input type="radio" name="payment" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} className="mt-1 accent-forest" />
+              <input type="radio" name="payment" value="cod" checked={paymentMethod === "cod"} disabled={!checkoutSettings?.codEnabled} onChange={() => setPaymentMethod("cod")} className="mt-1 accent-forest" />
               <Truck className="h-5 w-5 text-gold" aria-hidden="true" />
               <span><strong className="block text-sm text-forest">Cash on delivery</strong><small className="mt-1 block text-xs leading-5 text-muted">Pay when your parcel arrives. A small handling charge applies.</small></span>
             </label>
             <label className={`flex cursor-pointer items-start gap-4 rounded-lg border p-5 ${paymentMethod === "online" ? "border-forest bg-cream" : "border-[#e8ddc8]"}`}>
-              <input type="radio" name="payment" value="online" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} className="mt-1 accent-forest" />
+              <input type="radio" name="payment" value="online" checked={paymentMethod === "online"} disabled={!checkoutSettings?.onlineEnabled} onChange={() => setPaymentMethod("online")} className="mt-1 accent-forest" />
               <CreditCard className="h-5 w-5 text-gold" aria-hidden="true" />
               <span><strong className="block text-sm text-forest">Online payment (demo)</strong><small className="mt-1 block text-xs leading-5 text-muted">Simulates a successful payment. No card or bank details are requested or charged.</small></span>
             </label>
@@ -168,7 +203,7 @@ export function CheckoutForm() {
       <aside className="h-fit rounded-xl border border-[#e8ddc8] bg-white p-6 shadow-[0_15px_45px_rgba(15,56,44,.08)] lg:sticky lg:top-28" aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="font-heading text-2xl text-forest">Order summary</h2>
         <ul className="mt-5 space-y-4">
-          {items.map((item) => <li key={item.id} className="flex justify-between gap-3 text-sm"><span className="text-muted"><strong className="font-semibold text-[#2b2b2b]">{item.name}</strong><small className="mt-0.5 block">{item.variantName} · Qty {item.quantity}</small></span><strong className="min-w-fit text-forest">{formatPrice(item.price * item.quantity)}</strong></li>)}
+          {items.map((item) => <li key={item.id} className="flex justify-between gap-3 text-sm"><span className="text-muted"><strong className="font-semibold text-[#2b2b2b]">{item.name}</strong><small className="mt-0.5 block">{item.variantName} · Qty {item.quantity}</small></span><strong className="min-w-fit text-forest">{formatPrice(item.price * item.quantity, marketSlug)}</strong></li>)}
         </ul>
         <div className="mt-6 border-y border-[#e8ddc8] py-5">
           <label htmlFor="coupon" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-forest"><BadgePercent className="h-4 w-4 text-gold" /> Coupon code</label>
@@ -176,16 +211,17 @@ export function CheckoutForm() {
           {couponMessage && <p className={`mt-2 text-xs ${appliedCoupon ? "text-emerald-800" : "text-red-800"}`} role="status">{appliedCoupon && <Check className="mr-1 inline h-3 w-3" />}{couponMessage}</p>}
         </div>
         <dl className="mt-5 space-y-3 text-sm">
-          <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatPrice(totals.subtotal)}</dd></div>
-          <div className="flex justify-between"><dt className="text-muted">Shipping</dt><dd>{totals.shipping ? formatPrice(totals.shipping) : "Free"}</dd></div>
-          {totals.discount > 0 && <div className="flex justify-between text-emerald-800"><dt>Coupon discount</dt><dd>−{formatPrice(totals.discount)}</dd></div>}
-          {totals.codCharge > 0 && <div className="flex justify-between"><dt className="text-muted">COD handling</dt><dd>{formatPrice(totals.codCharge)}</dd></div>}
-          <div className="flex justify-between border-t border-[#e8ddc8] pt-4 font-heading text-xl text-forest"><dt>Total</dt><dd>{formatPrice(totals.total)}</dd></div>
+          <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatPrice(totals.subtotal, marketSlug)}</dd></div>
+          <div className="flex justify-between"><dt className="text-muted">Shipping</dt><dd>{totals.shipping ? formatPrice(totals.shipping, marketSlug) : "Free"}</dd></div>
+          {totals.discount > 0 && <div className="flex justify-between text-emerald-800"><dt>Coupon discount</dt><dd>−{formatPrice(totals.discount, marketSlug)}</dd></div>}
+          {totals.tax > 0 && <div className="flex justify-between"><dt className="text-muted">{checkoutSettings?.taxLabel ?? "Tax"} ({checkoutSettings?.taxRate ?? 0}%)</dt><dd>{formatPrice(totals.tax, marketSlug)}</dd></div>}
+          {totals.codCharge > 0 && <div className="flex justify-between"><dt className="text-muted">COD handling</dt><dd>{formatPrice(totals.codCharge, marketSlug)}</dd></div>}
+          <div className="flex justify-between border-t border-[#e8ddc8] pt-4 font-heading text-xl text-forest"><dt>Total</dt><dd>{formatPrice(totals.total, marketSlug)}</dd></div>
         </dl>
-        {totals.subtotal < FREE_SHIPPING_THRESHOLD && <p className="mt-4 rounded-md bg-cream px-3 py-2 text-xs text-muted">Add {formatPrice(FREE_SHIPPING_THRESHOLD - totals.subtotal)} more for free shipping.</p>}
+        {checkoutSettings?.freeShippingThreshold && totals.subtotal < checkoutSettings.freeShippingThreshold && <p className="mt-4 rounded-md bg-cream px-3 py-2 text-xs text-muted">Add {formatPrice(checkoutSettings.freeShippingThreshold - totals.subtotal, marketSlug)} more for free shipping.</p>}
         {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p>}
-        <button type="submit" disabled={processing} aria-busy={processing} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-forest px-5 text-sm font-bold text-white hover:bg-forest-light disabled:opacity-60">
-          {processing ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {paymentMethod === "online" ? "Simulating payment…" : "Placing order…"}</> : paymentMethod === "online" ? "Simulate payment & order" : "Place COD order"}
+        <button type="submit" disabled={processing || !checkoutSettings} aria-busy={processing} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-forest px-5 text-sm font-bold text-white hover:bg-forest-light disabled:opacity-60">
+          {!checkoutSettings ? "Loading checkout settings…" : processing ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {paymentMethod === "online" ? "Simulating payment…" : "Placing order…"}</> : paymentMethod === "online" ? "Simulate payment & order" : "Place COD order"}
         </button>
         <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gold" /> By placing this demo order, you agree to our <Link href="/policies/terms" className="font-semibold text-forest underline">terms</Link>.</p>
       </aside>

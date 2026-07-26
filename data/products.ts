@@ -1,4 +1,5 @@
 export type Product = {
+  href?: string;
   slug: string;
   name: string;
   category: string;

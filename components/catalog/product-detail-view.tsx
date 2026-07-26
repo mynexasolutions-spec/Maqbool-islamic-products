@@ -10,6 +10,7 @@ import { useCart } from "@/components/providers/cart-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { CatalogImage } from "@/components/catalog/catalog-image";
 import { CatalogCard } from "@/components/catalog/catalog-card";
+import { marketHref, type MarketSlug } from "@/lib/markets";
 
 const sampleReviews = [
   { name: "Ayesha R.", date: "18 July 2026", text: "Beautiful quality and exactly as shown. The packaging also felt very thoughtful." },
@@ -18,6 +19,7 @@ const sampleReviews = [
 ];
 
 export function ProductDetailView({ product, related }: { product: Product; related: Product[] }) {
+  const marketSlug = (product.marketSlug ?? "in") as MarketSlug;
   const router = useRouter();
   const { addItem } = useCart();
   const { toast } = useToast();
@@ -29,6 +31,7 @@ export function ProductDetailView({ product, related }: { product: Product; rela
   const [pincode, setPincode] = useState("");
   const [deliveryMessage, setDeliveryMessage] = useState("");
   const closeZoomRef = useRef<HTMLButtonElement>(null);
+  const zoomTriggerRef = useRef<HTMLButtonElement>(null);
   const variant = product.variants.find((item) => item.id === variantId) ?? firstAvailable;
   const stock = variant?.stock ?? 0;
 
@@ -36,9 +39,21 @@ export function ProductDetailView({ product, related }: { product: Product; rela
   useEffect(() => {
     if (!zoomOpen) return;
     closeZoomRef.current?.focus();
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setZoomOpen(false);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setZoomOpen(false);
+      if (event.key === "Tab") {
+        event.preventDefault();
+        closeZoomRef.current?.focus();
+      }
+    };
     document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", close);
+      zoomTriggerRef.current?.focus();
+    };
   }, [zoomOpen]);
 
   const cartItem = (): CartItem => ({
@@ -52,6 +67,8 @@ export function ProductDetailView({ product, related }: { product: Product; rela
     price: variant?.price ?? product.price,
     quantity,
     stock,
+    marketSlug,
+    currencyCode: product.currencyCode ?? "INR",
   });
   const add = (buyNow = false) => {
     if (!variant || stock < 1) {
@@ -60,11 +77,15 @@ export function ProductDetailView({ product, related }: { product: Product; rela
     }
     addItem(cartItem());
     toast(`${product.name} added to your cart.`);
-    if (buyNow) router.push("/checkout");
+    if (buyNow) router.push(marketHref(marketSlug, "/checkout"));
   };
   const checkDelivery = () => {
-    if (!/^\d{6}$/.test(pincode)) {
+    if (marketSlug === "in" && !/^\d{6}$/.test(pincode)) {
       setDeliveryMessage("Enter a valid 6-digit Indian pincode.");
+      return;
+    }
+    if (marketSlug !== "in" && pincode.trim().length < 3) {
+      setDeliveryMessage("Enter a valid local postal code.");
       return;
     }
     const days = 3 + (Number(pincode.at(-1)) % 4);
@@ -88,16 +109,16 @@ export function ProductDetailView({ product, related }: { product: Product; rela
     <main id="main-content">
       <div className="border-b border-[#ece5d3] bg-cream">
         <nav aria-label="Breadcrumb" className="site-container flex min-h-12 items-center gap-2 overflow-hidden text-xs text-muted">
-          <Link href="/" className="hover:text-forest">Home</Link><span aria-hidden="true">/</span>
-          <Link href="/shop" className="hover:text-forest">Shop</Link><span aria-hidden="true">/</span>
+          <Link href={marketHref(marketSlug, "/")} className="hover:text-forest">Home</Link><span aria-hidden="true">/</span>
+          <Link href={marketHref(marketSlug, "/shop")} className="hover:text-forest">Shop</Link><span aria-hidden="true">/</span>
           <span className="truncate text-forest" aria-current="page">{product.name}</span>
         </nav>
       </div>
       <section className="site-container grid gap-10 py-10 lg:grid-cols-[1.02fr_.98fr] lg:py-16">
         <div>
-          <button type="button" onClick={() => setZoomOpen(true)} className="group relative block aspect-square w-full overflow-hidden rounded-xl border border-[#e9e0cb] bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold" aria-label={`Zoom image: ${product.images[imageIndex]?.alt}`}>
+          <button ref={zoomTriggerRef} type="button" onClick={() => setZoomOpen(true)} disabled={!product.images.length} className="group relative block aspect-square w-full overflow-hidden rounded-xl border border-[#e9e0cb] bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-default" aria-label={product.images.length ? `Zoom image: ${product.images[imageIndex]?.alt ?? product.name}` : `${product.name} image unavailable`}>
             <CatalogImage src={product.images[imageIndex]?.src ?? ""} alt={product.images[imageIndex]?.alt ?? product.name} sizes="(max-width: 1024px) 100vw, 50vw" priority className="object-cover transition duration-500 group-hover:scale-[1.02] motion-reduce:transition-none" />
-            <span className="absolute bottom-4 right-4 flex h-11 items-center gap-2 rounded-full bg-white/95 px-4 text-xs font-semibold text-forest shadow-lg"><ZoomIn className="h-4 w-4" aria-hidden="true" /> Zoom</span>
+            {product.images.length ? <span className="absolute bottom-4 right-4 flex h-11 items-center gap-2 rounded-full bg-white/95 px-4 text-xs font-semibold text-forest shadow-lg"><ZoomIn className="h-4 w-4" aria-hidden="true" /> Zoom</span> : null}
           </button>
           {product.images.length > 1 ? (
             <div className="mt-3 grid grid-cols-4 gap-3" aria-label="Product images">
@@ -120,8 +141,8 @@ export function ProductDetailView({ product, related }: { product: Product; rela
             <strong>{product.rating}</strong><a href="#reviews" className="text-muted underline-offset-2 hover:underline">{product.reviewCount.toLocaleString("en-IN")} reviews</a>
           </div>
           <div className="mt-6 flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-forest">{formatPrice(variant?.price ?? product.price)}</span>
-            {variant?.originalPrice ? <span className="text-base text-muted line-through">{formatPrice(variant.originalPrice)}</span> : null}
+            <span className="text-3xl font-bold text-forest">{formatPrice(variant?.price ?? product.price, marketSlug)}</span>
+            {variant?.originalPrice ? <span className="text-base text-muted line-through">{formatPrice(variant.originalPrice, marketSlug)}</span> : null}
             {variant?.originalPrice ? <span className="rounded bg-[#e7f0e9] px-2 py-1 text-xs font-bold text-forest">{Math.round((1 - variant.price / variant.originalPrice) * 100)}% off</span> : null}
           </div>
           <p className="mt-5 text-sm leading-7 text-muted">{product.description}</p>
@@ -154,13 +175,13 @@ export function ProductDetailView({ product, related }: { product: Product; rela
           <div className="mt-7 rounded-lg border border-[#e3dbc7] bg-cream p-4">
             <label htmlFor="delivery-pincode" className="flex items-center gap-2 text-sm font-bold text-forest"><MapPin className="h-4 w-4 text-gold-dark" /> Check delivery</label>
             <div className="mt-2 flex gap-2">
-              <input id="delivery-pincode" value={pincode} onChange={(event) => setPincode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="postal-code" placeholder="6-digit pincode" className="min-h-11 min-w-0 flex-1 rounded border border-[#cfc6b1] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-gold" aria-describedby="delivery-result" />
+              <input id="delivery-pincode" value={pincode} onChange={(event) => setPincode(event.target.value.slice(0, 12))} autoComplete="postal-code" placeholder={marketSlug === "in" ? "6-digit pincode" : "Postal code"} className="min-h-11 min-w-0 flex-1 rounded border border-[#cfc6b1] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-gold" aria-describedby="delivery-result" />
               <button type="button" onClick={checkDelivery} className="min-h-11 rounded bg-forest px-4 text-sm font-semibold text-white">Check</button>
             </div>
             <p id="delivery-result" role="status" className="mt-2 min-h-5 text-xs text-muted">{deliveryMessage}</p>
           </div>
           <div className="mt-5 grid gap-3 text-xs text-muted sm:grid-cols-2">
-            <p className="flex items-center gap-2"><Truck className="h-5 w-5 text-gold-dark" /> Free shipping above ₹999</p>
+            <p className="flex items-center gap-2"><Truck className="h-5 w-5 text-gold-dark" /> Shipping calculated for your market</p>
             <p className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-gold-dark" /> Secure checkout & easy returns</p>
           </div>
         </div>
@@ -169,15 +190,15 @@ export function ProductDetailView({ product, related }: { product: Product; rela
         <div className="site-container grid gap-10 lg:grid-cols-2">
           <div>
             <h2 className="font-heading text-2xl text-forest">Product details</h2>
-            <dl className="mt-5 divide-y divide-[#e2d9c4] border-y border-[#e2d9c4]">
+            {Object.keys(product.specifications).length ? <dl className="mt-5 divide-y divide-[#e2d9c4] border-y border-[#e2d9c4]">
               {Object.entries(product.specifications).map(([term, value]) => <div key={term} className="grid grid-cols-[130px_1fr] gap-4 py-3 text-sm"><dt className="font-semibold text-forest">{term.replace("BeadSize", "Bead size")}</dt><dd className="text-muted">{value}</dd></div>)}
-            </dl>
+            </dl> : <p className="mt-5 text-sm leading-6 text-muted">Detailed product information will be available soon.</p>}
           </div>
           <div>
             <h2 className="font-heading text-2xl text-forest">Questions, answered</h2>
-            <div className="mt-5 divide-y divide-[#e2d9c4] border-y border-[#e2d9c4]">
+            {product.faqs.length ? <div className="mt-5 divide-y divide-[#e2d9c4] border-y border-[#e2d9c4]">
               {product.faqs.map((faq) => <details key={faq.question} className="group py-1"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-2 text-sm font-semibold text-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{faq.question}<ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" /></summary><p className="pb-4 pr-8 text-sm leading-6 text-muted">{faq.answer}</p></details>)}
-            </div>
+            </div> : <p className="mt-5 text-sm leading-6 text-muted">No product questions have been added yet. Contact us if you would like help choosing.</p>}
           </div>
         </div>
       </section>

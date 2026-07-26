@@ -1,8 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Edit3, ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
-import type { AdminProductRecord, ProductVariant } from "@/lib/models";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowDown,
+  ArrowUp,
+  Edit3,
+  ImageIcon,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { deleteProduct, saveProduct } from "@/app/admin/products/actions";
+import type {
+  AdminCatalogCategory,
+  AdminCatalogFaq,
+  AdminCatalogProduct,
+  AdminCatalogVariant,
+  ProductInput,
+} from "@/components/admin/catalog-types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
@@ -10,55 +27,123 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { useAdminStore } from "./admin-store";
 import { AdminPageHeader, AdminPanel, EmptyAdminState, StatusPill } from "./admin-ui";
+import { ProductImageManager } from "./product-image-manager";
 
-const emptyProduct = (): AdminProductRecord => ({
-  id: `prod-${Date.now()}`,
-  slug: "",
-  name: "",
-  category: "",
-  description: "",
-  price: 0,
-  rating: 0,
-  reviewCount: 0,
-  featured: false,
-  createdAt: new Date().toISOString(),
-  active: true,
-  images: [],
-  variants: [],
-  specifications: {},
-  faqs: [],
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
 });
 
-const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+function emptyProduct(): AdminCatalogProduct {
+  return {
+    id: "new",
+    categoryId: "",
+    categoryName: "",
+    name: "",
+    slug: "",
+    description: "",
+    price: 0,
+    compareAtPrice: null,
+    rating: 0,
+    reviewCount: 0,
+    badge: "",
+    isFeatured: false,
+    isActive: true,
+    displayOrder: 0,
+    variants: [],
+    information: [],
+    faqs: [],
+    images: [],
+  };
+}
 
-export function ProductManager() {
-  const { products, categories, saveProduct, deleteProduct } = useAdminStore();
+export function ProductManager({
+  initialProducts,
+  categories,
+}: {
+  initialProducts: AdminCatalogProduct[];
+  categories: AdminCatalogCategory[];
+}) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
-  const [editing, setEditing] = useState<AdminProductRecord | null>(null);
-  const [deleting, setDeleting] = useState<AdminProductRecord | null>(null);
+  const [editing, setEditing] = useState<AdminCatalogProduct | null>(null);
+  const [deleting, setDeleting] = useState<AdminCatalogProduct | null>(null);
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  const filtered = useMemo(() => products.filter((product) => {
-    const matchesQuery = `${product.name} ${product.slug}`.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = category === "all" || product.category === category;
-    const matchesStatus = status === "all" || (status === "active" ? product.active : !product.active);
-    return matchesQuery && matchesCategory && matchesStatus;
-  }), [category, products, query, status]);
+  const filtered = useMemo(
+    () =>
+      initialProducts.filter((product) => {
+        const matchesQuery = `${product.name} ${product.slug}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        const matchesCategory = category === "all" || product.categoryId === category;
+        const matchesStatus =
+          status === "all" ||
+          (status === "active" ? product.isActive : !product.isActive);
+        return matchesQuery && matchesCategory && matchesStatus;
+      }),
+    [category, initialProducts, query, status],
+  );
 
-  function save(product: AdminProductRecord) {
-    saveProduct(product);
-    setEditing(null);
-    setMessage(`${product.name} was saved.`);
+  function persist(product: ProductInput) {
+    setActionError("");
+    startTransition(async () => {
+      const result = await saveProduct(product);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      setEditing(null);
+      setMessage(result.message);
+      router.refresh();
+    });
+  }
+
+  function remove() {
+    if (!deleting) return;
+    setActionError("");
+    startTransition(async () => {
+      const result = await deleteProduct(deleting.id, deleting.slug);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      setDeleting(null);
+      setMessage(result.message);
+      router.refresh();
+    });
   }
 
   return (
     <>
       <div role="status" aria-live="polite" className="sr-only">{message}</div>
-      <AdminPageHeader eyebrow="Catalog" title="Products" description="Create and maintain products, pricing, variants, stock, imagery, and storefront content." action={<Button onClick={() => setEditing(emptyProduct())} className="min-h-11 bg-[#123d32] hover:bg-[#1a5445]"><Plus className="mr-2 h-4 w-4" /> Add product</Button>} />
+      <AdminPageHeader
+        eyebrow="Catalog"
+        title="Products"
+        description="Create and maintain products, pricing, variants, stock, and storefront content."
+        action={
+          <Button
+            onClick={() => {
+              setActionError("");
+              setEditing(emptyProduct());
+            }}
+            className="min-h-11 bg-[#123d32] hover:bg-[#1a5445]"
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add product
+          </Button>
+        }
+      />
+      {actionError && !editing && !deleting && (
+        <p role="alert" className="mb-4 rounded-lg border border-[#edc8bf] bg-[#fff1ee] p-3 text-sm text-[#8d3426]">
+          {actionError}
+        </p>
+      )}
       <AdminPanel>
         <div className="grid gap-3 border-b border-[#e8e3d8] p-4 md:grid-cols-[1fr_220px_160px]">
           <label className="relative">
@@ -66,88 +151,505 @@ export function ProductManager() {
             <Search className="absolute left-3 top-3 h-4 w-4 text-[#718079]" aria-hidden="true" />
             <Input value={query} onChange={(event) => setQuery(event.target.value)} className="pl-9" placeholder="Search name or slug…" />
           </label>
-          <label><span className="sr-only">Filter by category</span><Select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full"><option value="all">All categories</option>{categories.map((item) => <option key={item.id}>{item.name}</option>)}</Select></label>
-          <label><span className="sr-only">Filter by status</span><Select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full"><option value="all">Any status</option><option value="active">Active</option><option value="inactive">Inactive</option></Select></label>
+          <label>
+            <span className="sr-only">Filter by category</span>
+            <Select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full">
+              <option value="all">All categories</option>
+              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </Select>
+          </label>
+          <label>
+            <span className="sr-only">Filter by status</span>
+            <Select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full">
+              <option value="all">Any status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
+          </label>
         </div>
         {filtered.length ? (
           <Table>
             <thead className="bg-[#f8f6f0] text-[11px] uppercase tracking-[.12em] text-[#69766f]">
-              <tr><th className="px-5 py-3 font-bold">Product</th><th className="px-4 py-3 font-bold">Price</th><th className="px-4 py-3 font-bold">Stock</th><th className="px-4 py-3 font-bold">Status</th><th className="px-5 py-3 text-right font-bold">Actions</th></tr>
+              <tr>
+                <th scope="col" className="px-5 py-3 font-bold">Product</th>
+                <th scope="col" className="px-4 py-3 font-bold">Price</th>
+                <th scope="col" className="px-4 py-3 font-bold">Stock</th>
+                <th scope="col" className="px-4 py-3 font-bold">Order</th>
+                <th scope="col" className="px-4 py-3 font-bold">Status</th>
+                <th scope="col" className="px-5 py-3 text-right font-bold">Actions</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-[#eee9df]">
-              {filtered.map((product) => (
-                <tr key={product.id} className="hover:bg-[#fbfaf7]">
-                  <td className="px-5 py-4"><div className="flex items-center gap-3">{product.images[0]?.src ? <img src={product.images[0].src} alt="" className="h-12 w-12 rounded-lg bg-[#eee9df] object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-lg bg-[#eee9df]"><ImageIcon className="h-5 w-5" /></span>}<div><p className="font-bold text-[#263d35]">{product.name}</p><p className="text-xs text-[#74807b]">{product.category} · /{product.slug}</p></div></div></td>
-                  <td className="px-4 py-4 font-bold text-[#123d32]">{currency.format(product.price)}</td>
-                  <td className="px-4 py-4"><span className={product.variants.reduce((sum, item) => sum + item.stock, 0) < 10 ? "font-bold text-[#9a4f22]" : ""}>{product.variants.reduce((sum, item) => sum + item.stock, 0)}</span><p className="text-xs text-[#74807b]">{product.variants.length} variant{product.variants.length === 1 ? "" : "s"}</p></td>
-                  <td className="px-4 py-4"><StatusPill active={product.active} /></td>
-                  <td className="px-5 py-4"><div className="flex justify-end gap-1"><button onClick={() => setEditing(product)} className="grid min-h-10 min-w-10 place-items-center rounded-lg text-[#35584d] hover:bg-[#e8f0ec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]" aria-label={`Edit ${product.name}`}><Edit3 className="h-4 w-4" /></button><button onClick={() => setDeleting(product)} className="grid min-h-10 min-w-10 place-items-center rounded-lg text-[#9a3d2e] hover:bg-[#fff0ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a34838]" aria-label={`Delete ${product.name}`}><Trash2 className="h-4 w-4" /></button></div></td>
-                </tr>
-              ))}
+              {filtered.map((product) => {
+                const stock = product.variants.reduce((sum, item) => sum + item.stock, 0);
+                const image = product.images.find((item) => item.isFeatured) ?? product.images[0];
+                return (
+                  <tr key={product.id} className="hover:bg-[#fbfaf7]">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {image?.secureUrl ? (
+                          <img src={image.secureUrl} alt="" className="h-12 w-12 rounded-lg bg-[#eee9df] object-cover" />
+                        ) : (
+                          <span className="grid h-12 w-12 place-items-center rounded-lg bg-[#eee9df]">
+                            <ImageIcon className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        )}
+                        <div>
+                          <p className="font-bold text-[#263d35]">{product.name}</p>
+                          <p className="text-xs text-[#74807b]">{product.categoryName} · /{product.slug}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 font-bold text-[#123d32]">{currency.format(product.price)}</td>
+                    <td className="px-4 py-4">
+                      <span className={stock < 10 ? "font-bold text-[#9a4f22]" : ""}>{stock}</span>
+                      <p className="text-xs text-[#74807b]">{product.variants.length} variant{product.variants.length === 1 ? "" : "s"}</p>
+                    </td>
+                    <td className="px-4 py-4">{product.displayOrder}</td>
+                    <td className="px-4 py-4"><StatusPill active={product.isActive} /></td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            setActionError("");
+                            setEditing(product);
+                          }}
+                          className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[#35584d] hover:bg-[#e8f0ec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]"
+                          aria-label={`Edit ${product.name}`}
+                        >
+                          <Edit3 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActionError("");
+                            setDeleting(product);
+                          }}
+                          className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[#9a3d2e] hover:bg-[#fff0ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a34838]"
+                          aria-label={`Delete ${product.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
-        ) : <EmptyAdminState title="No products found" description="Adjust your filters or create a new product to populate the catalog." />}
+        ) : (
+          <EmptyAdminState title="No products found" description="Adjust your filters or create a new product to populate the catalog." />
+        )}
       </AdminPanel>
-      <Dialog open={Boolean(editing)} onClose={() => setEditing(null)} title={editing?.name ? `Edit ${editing.name}` : "Add product"}>
-        {editing && <ProductForm key={editing.id} product={editing} categories={categories.map((item) => item.name)} onCancel={() => setEditing(null)} onSave={save} />}
+      <Dialog
+        open={Boolean(editing)}
+        onClose={() => !isPending && setEditing(null)}
+        title={editing?.name ? `Edit ${editing.name}` : "Add product"}
+      >
+        {editing && (
+          <ProductForm
+            key={editing.id}
+            product={editing}
+            categories={categories}
+            isPending={isPending}
+            actionError={actionError}
+            onCancel={() => setEditing(null)}
+            onSave={persist}
+          />
+        )}
       </Dialog>
-      <Dialog open={Boolean(deleting)} onClose={() => setDeleting(null)} title="Delete product?">
-        <p className="text-sm leading-6 text-[#65736d]">This removes <strong>{deleting?.name}</strong> from local demo data. You can restore the original catalog from Settings.</p>
-        <div className="mt-6 flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button><Button className="bg-[#9a3d2e] hover:bg-[#7d3024]" onClick={() => { if (deleting) { deleteProduct(deleting.id); setMessage(`${deleting.name} was deleted.`); setDeleting(null); } }}>Delete</Button></div>
+      <Dialog
+        open={Boolean(deleting)}
+        onClose={() => !isPending && setDeleting(null)}
+        title="Delete product?"
+      >
+        <p className="text-sm leading-6 text-[#65736d]">
+          This permanently removes <strong>{deleting?.name}</strong> and its catalog content.
+        </p>
+        {actionError && <p role="alert" className="mt-4 text-sm text-[#8d3426]">{actionError}</p>}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" disabled={isPending} onClick={() => setDeleting(null)}>Cancel</Button>
+          <Button disabled={isPending} aria-busy={isPending} className="bg-[#9a3d2e] hover:bg-[#7d3024]" onClick={remove}>
+            {isPending ? "Deleting…" : "Delete"}
+          </Button>
+        </div>
       </Dialog>
     </>
   );
 }
 
-function ProductForm({ product, categories, onCancel, onSave }: { product: AdminProductRecord; categories: string[]; onCancel: () => void; onSave: (product: AdminProductRecord) => void }) {
+function ProductForm({
+  product,
+  categories,
+  isPending,
+  actionError,
+  onCancel,
+  onSave,
+}: {
+  product: AdminCatalogProduct;
+  categories: AdminCatalogCategory[];
+  isPending: boolean;
+  actionError: string;
+  onCancel: () => void;
+  onSave: (product: ProductInput) => void;
+}) {
   const [draft, setDraft] = useState(() => structuredClone(product));
-  const [error, setError] = useState("");
-  const specs = Object.entries(draft.specifications);
-
-  function updateVariant(id: string, field: keyof ProductVariant, value: string | number) {
-    setDraft((current) => ({ ...current, variants: current.variants.map((item) => item.id === id ? { ...item, [field]: value } : item) }));
-  }
+  const [validationError, setValidationError] = useState("");
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!draft.name.trim() || !draft.slug.trim() || !draft.category || draft.price <= 0) {
-      setError("Add a name, slug, category, and price greater than zero.");
+    const slug = draft.slug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (!draft.name.trim() || !slug || !draft.categoryId || draft.price < 0) {
+      setValidationError("Add a name, slug, category, and a valid base price.");
       return;
     }
-    onSave({ ...draft, name: draft.name.trim(), slug: draft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") });
+    if (draft.variants.some((variant) => !variant.sku.trim())) {
+      setValidationError("Every variant needs a unique SKU.");
+      return;
+    }
+    const { categoryName: _categoryName, images: _images, ...input } = draft;
+    onSave({ ...input, name: draft.name.trim(), slug });
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6" noValidate>
-      {error && <p role="alert" className="rounded-lg bg-[#fff1ee] p-3 text-sm text-[#8d3426]">{error}</p>}
-      <fieldset className="space-y-4"><legend className="mb-3 font-bold text-[#123d32]">Basic details</legend>
-        <div><label htmlFor="product-name" className="mb-1.5 block text-sm font-semibold">Name *</label><Input id="product-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></div>
-        <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="product-slug" className="mb-1.5 block text-sm font-semibold">Slug *</label><Input id="product-slug" value={draft.slug} onChange={(event) => setDraft({ ...draft, slug: event.target.value })} required /></div><div><label htmlFor="product-category" className="mb-1.5 block text-sm font-semibold">Category *</label><Select id="product-category" value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })} className="w-full" required><option value="">Choose category</option>{categories.map((item) => <option key={item}>{item}</option>)}</Select></div></div>
-        <div><label htmlFor="product-description" className="mb-1.5 block text-sm font-semibold">Description</label><Textarea id="product-description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></div>
-        <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="product-price" className="mb-1.5 block text-sm font-semibold">Base price (₹) *</label><Input id="product-price" type="number" min="1" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></div><div><label htmlFor="product-original-price" className="mb-1.5 block text-sm font-semibold">Original price (₹)</label><Input id="product-original-price" type="number" min="0" value={draft.originalPrice ?? ""} onChange={(event) => setDraft({ ...draft, originalPrice: event.target.value ? Number(event.target.value) : undefined })} /></div></div>
-        <div className="flex flex-wrap gap-5"><label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><Checkbox checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /> Active</label><label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><Checkbox checked={draft.featured} onChange={(event) => setDraft({ ...draft, featured: event.target.checked })} /> Featured</label></div>
+    <form onSubmit={submit} className="space-y-7" noValidate>
+      {(validationError || actionError) && (
+        <p role="alert" className="rounded-lg bg-[#fff1ee] p-3 text-sm text-[#8d3426]">
+          {validationError || actionError}
+        </p>
+      )}
+      <fieldset className="space-y-4">
+        <legend className="mb-3 font-bold text-[#123d32]">Basic details</legend>
+        <Field label="Name" htmlFor="product-name" required>
+          <Input id="product-name" required aria-required="true" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Slug" htmlFor="product-slug" required>
+            <Input id="product-slug" required aria-required="true" value={draft.slug} onChange={(event) => setDraft({ ...draft, slug: event.target.value })} />
+          </Field>
+          <Field label="Category" htmlFor="product-category" required>
+            <Select id="product-category" required aria-required="true" value={draft.categoryId} onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })} className="w-full">
+              <option value="">Choose category</option>
+              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </Select>
+          </Field>
+        </div>
+        <Field label="Description" htmlFor="product-description">
+          <Textarea id="product-description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="India base price (INR)" htmlFor="product-price" required>
+            <Input id="product-price" type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} />
+          </Field>
+          <Field label="India compare-at price (INR)" htmlFor="product-compare-price">
+            <Input id="product-compare-price" type="number" min="0" step="0.01" value={draft.compareAtPrice ?? ""} onChange={(event) => setDraft({ ...draft, compareAtPrice: event.target.value ? Number(event.target.value) : null })} />
+          </Field>
+          <Field label="Badge" htmlFor="product-badge">
+            <Input id="product-badge" value={draft.badge} onChange={(event) => setDraft({ ...draft, badge: event.target.value })} />
+          </Field>
+          <Field label="Display order" htmlFor="product-order">
+            <Input id="product-order" type="number" min="0" step="1" value={draft.displayOrder} onChange={(event) => setDraft({ ...draft, displayOrder: Number(event.target.value) })} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-5">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
+            <Checkbox checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} /> Active
+          </label>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
+            <Checkbox checked={draft.isFeatured} onChange={(event) => setDraft({ ...draft, isFeatured: event.target.checked })} /> Featured
+          </label>
+        </div>
       </fieldset>
-      <EditorSection title="Images" onAdd={() => setDraft({ ...draft, images: [...draft.images, { id: `img-${Date.now()}`, src: "", alt: "" }] })}>
-        {draft.images.map((image, index) => <div key={image.id} className="grid gap-2 rounded-lg bg-[#f8f6f0] p-3 sm:grid-cols-[56px_1fr_auto]"><div className="grid h-14 w-14 place-items-center overflow-hidden rounded-md bg-[#e9e4d9]">{image.src ? <img src={image.src} alt="" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <ImageIcon className="h-5 w-5" />}</div><div className="space-y-2"><Input aria-label={`Image ${index + 1} URL`} placeholder="/product.webp or https://…" value={image.src} onChange={(event) => setDraft({ ...draft, images: draft.images.map((item) => item.id === image.id ? { ...item, src: event.target.value } : item) })} /><Input aria-label={`Image ${index + 1} alternative text`} placeholder="Alternative text" value={image.alt} onChange={(event) => setDraft({ ...draft, images: draft.images.map((item) => item.id === image.id ? { ...item, alt: event.target.value } : item) })} /></div><RemoveButton label={`Remove image ${index + 1}`} onClick={() => setDraft({ ...draft, images: draft.images.filter((item) => item.id !== image.id) })} /></div>)}
+
+      <EditorSection
+        title="Variants"
+        onAdd={() =>
+          setDraft({
+            ...draft,
+            variants: [
+              ...draft.variants,
+              {
+                sku: "",
+                name: "Option",
+                value: "",
+                price: draft.price,
+                compareAtPrice: null,
+                stock: 0,
+                color: "",
+                imageUrl: "",
+                isActive: true,
+                displayOrder: draft.variants.length,
+              },
+            ],
+          })
+        }
+      >
+        {draft.variants.map((variant, index) => (
+          <VariantEditor
+            key={variant.id ?? `variant-${index}`}
+            variant={variant}
+            index={index}
+            count={draft.variants.length}
+            onChange={(next) => setDraft({ ...draft, variants: draft.variants.map((item, itemIndex) => itemIndex === index ? next : item) })}
+            onMove={(direction) => setDraft({ ...draft, variants: move(draft.variants, index, direction) })}
+            onRemove={() => setDraft({ ...draft, variants: draft.variants.filter((_, itemIndex) => itemIndex !== index) })}
+          />
+        ))}
       </EditorSection>
-      <EditorSection title="Variants" onAdd={() => setDraft({ ...draft, variants: [...draft.variants, { id: `var-${Date.now()}`, name: "Option", value: "", price: draft.price, stock: 0 }] })}>
-        {draft.variants.map((variant, index) => <div key={variant.id} className="grid gap-2 rounded-lg bg-[#f8f6f0] p-3 sm:grid-cols-2"><Input aria-label={`Variant ${index + 1} name`} placeholder="Type (e.g. Size)" value={variant.name} onChange={(event) => updateVariant(variant.id, "name", event.target.value)} /><Input aria-label={`Variant ${index + 1} value`} placeholder="Value" value={variant.value} onChange={(event) => updateVariant(variant.id, "value", event.target.value)} /><Input aria-label={`Variant ${index + 1} price`} type="number" min="0" placeholder="Price" value={variant.price} onChange={(event) => updateVariant(variant.id, "price", Number(event.target.value))} /><div className="flex gap-2"><Input aria-label={`Variant ${index + 1} stock`} type="number" min="0" placeholder="Stock" value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", Number(event.target.value))} /><RemoveButton label={`Remove variant ${index + 1}`} onClick={() => setDraft({ ...draft, variants: draft.variants.filter((item) => item.id !== variant.id) })} /></div></div>)}
+
+      <EditorSection
+        title="Product information"
+        onAdd={() => setDraft({ ...draft, information: [...draft.information, { label: "", value: "", displayOrder: draft.information.length }] })}
+      >
+        {draft.information.map((row, index) => (
+          <OrderedRow
+            key={row.id ?? `information-${index}`}
+            index={index}
+            count={draft.information.length}
+            label={`Information row ${index + 1}`}
+            onMove={(direction) => setDraft({ ...draft, information: move(draft.information, index, direction) })}
+            onRemove={() => setDraft({ ...draft, information: draft.information.filter((_, itemIndex) => itemIndex !== index) })}
+          >
+            <Input aria-label={`Information ${index + 1} label`} placeholder="Label" value={row.label} onChange={(event) => setDraft({ ...draft, information: updateAt(draft.information, index, { ...row, label: event.target.value }) })} />
+            <Input aria-label={`Information ${index + 1} value`} placeholder="Value" value={row.value} onChange={(event) => setDraft({ ...draft, information: updateAt(draft.information, index, { ...row, value: event.target.value }) })} />
+          </OrderedRow>
+        ))}
       </EditorSection>
-      <EditorSection title="Specifications" onAdd={() => setDraft({ ...draft, specifications: { ...draft.specifications, [`New specification ${specs.length + 1}`]: "" } })}>
-        {specs.map(([key, value], index) => <div key={`${key}-${index}`} className="flex gap-2"><Input aria-label={`Specification ${index + 1} name`} value={key} onChange={(event) => { const next = { ...draft.specifications }; delete next[key]; next[event.target.value] = value; setDraft({ ...draft, specifications: next }); }} /><Input aria-label={`Specification ${index + 1} value`} value={value} onChange={(event) => setDraft({ ...draft, specifications: { ...draft.specifications, [key]: event.target.value } })} /><RemoveButton label={`Remove specification ${key}`} onClick={() => { const next = { ...draft.specifications }; delete next[key]; setDraft({ ...draft, specifications: next }); }} /></div>)}
+
+      <EditorSection
+        title="FAQs"
+        onAdd={() => setDraft({ ...draft, faqs: [...draft.faqs, { question: "", answer: "", isActive: true, displayOrder: draft.faqs.length }] })}
+      >
+        {draft.faqs.map((faq, index) => (
+          <FaqEditor
+            key={faq.id ?? `faq-${index}`}
+            faq={faq}
+            index={index}
+            count={draft.faqs.length}
+            onChange={(next) => setDraft({ ...draft, faqs: updateAt(draft.faqs, index, next) })}
+            onMove={(direction) => setDraft({ ...draft, faqs: move(draft.faqs, index, direction) })}
+            onRemove={() => setDraft({ ...draft, faqs: draft.faqs.filter((_, itemIndex) => itemIndex !== index) })}
+          />
+        ))}
       </EditorSection>
-      <EditorSection title="FAQs" onAdd={() => setDraft({ ...draft, faqs: [...draft.faqs, { question: "", answer: "" }] })}>
-        {draft.faqs.map((faq, index) => <div key={index} className="rounded-lg bg-[#f8f6f0] p-3"><div className="mb-2 flex gap-2"><Input aria-label={`FAQ ${index + 1} question`} placeholder="Question" value={faq.question} onChange={(event) => setDraft({ ...draft, faqs: draft.faqs.map((item, itemIndex) => itemIndex === index ? { ...item, question: event.target.value } : item) })} /><RemoveButton label={`Remove FAQ ${index + 1}`} onClick={() => setDraft({ ...draft, faqs: draft.faqs.filter((_, itemIndex) => itemIndex !== index) })} /></div><Textarea aria-label={`FAQ ${index + 1} answer`} placeholder="Answer" className="min-h-20" value={faq.answer} onChange={(event) => setDraft({ ...draft, faqs: draft.faqs.map((item, itemIndex) => itemIndex === index ? { ...item, answer: event.target.value } : item) })} /></div>)}
-      </EditorSection>
-      <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4"><Button type="button" variant="outline" onClick={onCancel}>Cancel</Button><Button type="submit" className="bg-[#123d32] hover:bg-[#1a5445]">Save product</Button></div>
+
+      {draft.id === "new" ? (
+        <section aria-labelledby="product-media-heading" className="rounded-xl border border-dashed border-[#d7cfbd] bg-[#fbfaf7] p-4">
+          <h3 id="product-media-heading" className="font-bold text-[#123d32]">Product images</h3>
+          <p className="mt-1 text-sm leading-6 text-[#69756f]">Save the product before uploading images.</p>
+        </section>
+      ) : (
+        <ProductImageManager
+          productId={draft.id}
+          productName={draft.name}
+          initialImages={draft.images}
+          colorVariants={draft.variants.flatMap((variant) =>
+            variant.id ? [{ id: variant.id, label: `${variant.name}: ${variant.value}` }] : [],
+          )}
+        />
+      )}
+
+      <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4">
+        <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isPending} aria-busy={isPending} className="bg-[#123d32] hover:bg-[#1a5445]">
+          {isPending ? "Saving…" : "Save product"}
+        </Button>
+      </div>
     </form>
   );
 }
 
-function EditorSection({ title, onAdd, children }: { title: string; onAdd: () => void; children: React.ReactNode }) {
-  return <fieldset><div className="mb-3 flex items-center justify-between"><legend className="font-bold text-[#123d32]">{title}</legend><button type="button" onClick={onAdd} className="inline-flex min-h-10 items-center rounded-lg px-3 text-xs font-bold text-[#73571d] hover:bg-[#f1ead9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]"><Plus className="mr-1 h-3.5 w-3.5" /> Add</button></div><div className="space-y-3">{children}</div></fieldset>;
+function VariantEditor({
+  variant,
+  index,
+  count,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  variant: AdminCatalogVariant;
+  index: number;
+  count: number;
+  onChange: (variant: AdminCatalogVariant) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg bg-[#f8f6f0] p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#69766f]">Variant {index + 1}</p>
+        <OrderControls index={index} count={count} label={`variant ${index + 1}`} onMove={onMove} onRemove={onRemove} />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input aria-label={`Variant ${index + 1} type`} placeholder="Type (e.g. Size)" value={variant.name} onChange={(event) => onChange({ ...variant, name: event.target.value })} />
+        <Input aria-label={`Variant ${index + 1} value`} placeholder="Value" value={variant.value} onChange={(event) => onChange({ ...variant, value: event.target.value })} />
+        <Input aria-label={`Variant ${index + 1} SKU`} placeholder="SKU" value={variant.sku} onChange={(event) => onChange({ ...variant, sku: event.target.value })} />
+        <Input aria-label={`Variant ${index + 1} color`} placeholder="Colour" value={variant.color} onChange={(event) => onChange({ ...variant, color: event.target.value })} />
+        <Input aria-label={`Variant ${index + 1} price`} type="number" min="0" step="0.01" placeholder="Price" value={variant.price} onChange={(event) => onChange({ ...variant, price: Number(event.target.value) })} />
+        <Input aria-label={`Variant ${index + 1} compare-at price`} type="number" min="0" step="0.01" placeholder="Compare-at price" value={variant.compareAtPrice ?? ""} onChange={(event) => onChange({ ...variant, compareAtPrice: event.target.value ? Number(event.target.value) : null })} />
+        <Input aria-label={`Variant ${index + 1} stock`} type="number" min="0" step="1" placeholder="Stock" value={variant.stock} onChange={(event) => onChange({ ...variant, stock: Number(event.target.value) })} />
+        <label className="flex min-h-11 items-center gap-2 px-1 text-sm font-semibold">
+          <Checkbox checked={variant.isActive} onChange={(event) => onChange({ ...variant, isActive: event.target.checked })} /> Active
+        </label>
+      </div>
+    </div>
+  );
 }
 
-function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label={label} className="grid min-h-10 min-w-10 place-items-center rounded-lg text-[#9a3d2e] hover:bg-[#ffebe7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a34838]"><X className="h-4 w-4" /></button>;
+function FaqEditor({
+  faq,
+  index,
+  count,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  faq: AdminCatalogFaq;
+  index: number;
+  count: number;
+  onChange: (faq: AdminCatalogFaq) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg bg-[#f8f6f0] p-3">
+      <div className="mb-2 flex gap-2">
+        <Input aria-label={`FAQ ${index + 1} question`} placeholder="Question" value={faq.question} onChange={(event) => onChange({ ...faq, question: event.target.value })} />
+        <OrderControls index={index} count={count} label={`FAQ ${index + 1}`} onMove={onMove} onRemove={onRemove} />
+      </div>
+      <Textarea aria-label={`FAQ ${index + 1} answer`} placeholder="Answer" className="min-h-20" value={faq.answer} onChange={(event) => onChange({ ...faq, answer: event.target.value })} />
+      <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold">
+        <Checkbox checked={faq.isActive} onChange={(event) => onChange({ ...faq, isActive: event.target.checked })} /> Active
+      </label>
+    </div>
+  );
+}
+
+function OrderedRow({
+  index,
+  count,
+  label,
+  onMove,
+  onRemove,
+  children,
+}: {
+  index: number;
+  count: number;
+  label: string;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-2 rounded-lg bg-[#f8f6f0] p-3 sm:grid-cols-[1fr_1fr_auto]">
+      {children}
+      <OrderControls index={index} count={count} label={label} onMove={onMove} onRemove={onRemove} />
+    </div>
+  );
+}
+
+function OrderControls({
+  index,
+  count,
+  label,
+  onMove,
+  onRemove,
+}: {
+  index: number;
+  count: number;
+  label: string;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex">
+      <IconButton label={`Move ${label} up`} disabled={index === 0} onClick={() => onMove(-1)}><ArrowUp className="h-4 w-4" /></IconButton>
+      <IconButton label={`Move ${label} down`} disabled={index === count - 1} onClick={() => onMove(1)}><ArrowDown className="h-4 w-4" /></IconButton>
+      <IconButton label={`Remove ${label}`} destructive onClick={onRemove}><X className="h-4 w-4" /></IconButton>
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  disabled,
+  destructive,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  destructive?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`grid min-h-11 min-w-11 place-items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c] disabled:opacity-30 ${destructive ? "text-[#9a3d2e] hover:bg-[#ffebe7]" : "text-[#35584d] hover:bg-[#e8f0ec]"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function EditorSection({
+  title,
+  onAdd,
+  children,
+}: {
+  title: string;
+  onAdd: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset>
+      <div className="mb-3 flex items-center justify-between">
+        <legend className="font-bold text-[#123d32]">{title}</legend>
+        <button type="button" onClick={onAdd} className="inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-bold text-[#73571d] hover:bg-[#f1ead9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58a2c]">
+          <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Add
+        </button>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </fieldset>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  required,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-semibold">
+        {label} {required && <span aria-hidden="true">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function updateAt<T>(items: T[], index: number, value: T) {
+  return items.map((item, itemIndex) => itemIndex === index ? value : item);
+}
+
+function move<T extends { displayOrder: number }>(items: T[], index: number, direction: -1 | 1) {
+  const destination = index + direction;
+  if (destination < 0 || destination >= items.length) return items;
+  const next = [...items];
+  [next[index], next[destination]] = [next[destination], next[index]];
+  return next.map((item, displayOrder) => ({ ...item, displayOrder }));
 }

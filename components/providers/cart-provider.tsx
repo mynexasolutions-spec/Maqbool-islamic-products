@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { CartItem } from "@/lib/models";
 import { readStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
+import { useMarket } from "./market-provider";
 
 type CartContextValue = {
   items: CartItem[];
@@ -19,14 +20,16 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { marketSlug, market } = useMarket();
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [isOpen, setOpen] = useState(false);
 
   useEffect(() => {
-    setItems(readStorage(STORAGE_KEYS.cart, []));
+    const stored = readStorage<CartItem[]>(STORAGE_KEYS.cart, []);
+    setItems(stored.filter((item) => !item.marketSlug || item.marketSlug === marketSlug));
     setHydrated(true);
-  }, []);
+  }, [marketSlug]);
   useEffect(() => {
     if (hydrated) writeStorage(STORAGE_KEYS.cart, items);
   }, [hydrated, items]);
@@ -38,11 +41,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     isOpen,
     setOpen,
     addItem: (next) => {
+      const normalized = { ...next, marketSlug, currencyCode: market.currencyCode };
       setItems((current) => {
-        const existing = current.find((item) => item.id === next.id);
-        if (!existing) return [...current, { ...next, quantity: Math.min(next.quantity, next.stock) }];
-        return current.map((item) => item.id === next.id
-          ? { ...item, quantity: Math.min(item.quantity + next.quantity, item.stock) }
+        const sameMarket = current.filter((item) => !item.marketSlug || item.marketSlug === marketSlug);
+        const existing = sameMarket.find((item) => item.id === normalized.id);
+        if (!existing) return [...sameMarket, { ...normalized, quantity: Math.min(normalized.quantity, normalized.stock) }];
+        return sameMarket.map((item) => item.id === normalized.id
+          ? { ...item, quantity: Math.min(item.quantity + normalized.quantity, item.stock), marketSlug, currencyCode: market.currencyCode }
           : item);
       });
       setOpen(true);
@@ -51,7 +56,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       item.id === id ? { ...item, quantity: Math.max(1, Math.min(quantity, item.stock)) } : item)),
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clear: () => setItems([]),
-  }), [isOpen, items]);
+  }), [isOpen, items, market.currencyCode, marketSlug]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
@@ -61,4 +66,3 @@ export function useCart() {
   if (!value) throw new Error("useCart must be used within CartProvider");
   return value;
 }
-

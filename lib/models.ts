@@ -33,6 +33,8 @@ export type Product = {
   variants: ProductVariant[];
   specifications: Record<string, string>;
   faqs: Array<{ question: string; answer: string }>;
+  marketSlug?: string;
+  currencyCode?: string;
 };
 
 export type Category = {
@@ -54,6 +56,8 @@ export type CartItem = {
   price: number;
   quantity: number;
   stock: number;
+  marketSlug?: string;
+  currencyCode?: string;
 };
 
 export type CustomerSession = {
@@ -73,6 +77,7 @@ export type Address = {
   state: string;
   pincode: string;
   isDefault: boolean;
+  countryCode?: string;
 };
 
 export type OrderStatus = "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
@@ -88,6 +93,11 @@ export type MockOrder = {
   shipping: number;
   discount: number;
   codCharge: number;
+  tax?: number;
+  taxLabel?: string;
+  marketSlug?: string;
+  currencyCode?: string;
+  paymentStatus?: "pending" | "simulated" | "paid" | "failed" | "refunded";
   total: number;
   paymentMethod: PaymentMethod;
   status: OrderStatus;
@@ -96,4 +106,3 @@ export type MockOrder = {
 export type AdminProductRecord = Product;
 export type AdminCategoryRecord = Category;
 export type AdminOrderRecord = MockOrder;
-

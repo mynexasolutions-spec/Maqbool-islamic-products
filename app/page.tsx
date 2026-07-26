@@ -21,7 +21,11 @@ import { Footer } from "@/components/layout/footer";
 import { ProductCard } from "@/components/product-card";
 import { Faq, type FaqItem } from "@/components/faq";
 import { Newsletter } from "@/components/newsletter";
-import { products } from "@/data/products";
+import { HeroMedia } from "@/components/home/hero-media";
+import { HomeBannerGallery } from "@/components/home/home-banner-gallery";
+import { getHomepageContent } from "@/lib/homepage-content";
+import { getFeaturedProducts } from "@/lib/catalog-repository";
+import { formatMoney, marketHref, type MarketSlug } from "@/lib/markets";
 
 export const metadata: Metadata = {
   title: "Maqbool Islamic Products - Everything for Your Deen",
@@ -68,8 +72,27 @@ const faqs: FaqItem[] = [
   },
 ];
 
-export default function HomePage() {
-  const bestSellers = [products[0], products[2], products[5], products[4], products[7]];
+export default async function HomePage() {
+  const [homepage, catalogBestSellers] = await Promise.all([
+    getHomepageContent(),
+    getFeaturedProducts(5).catch(() => []),
+  ]);
+  const bestSellers = catalogBestSellers.map((product) => ({
+    href: marketHref((product.marketSlug ?? "in") as MarketSlug, `/shop/${product.slug}`),
+    slug: product.slug,
+    name: product.name,
+    category: product.category,
+    price: formatMoney(product.price, (product.marketSlug ?? "in") as MarketSlug),
+    oldPrice: product.originalPrice ? formatMoney(product.originalPrice, (product.marketSlug ?? "in") as MarketSlug) : undefined,
+    image: product.images[0]?.src ?? "/quran.webp",
+    alt: product.images[0]?.alt ?? product.name,
+    reviews: product.reviewCount.toLocaleString("en-IN"),
+    badge: product.badge,
+    badgeTone: "gold" as const,
+  }));
+  const displayedFaqs = homepage.available
+    ? homepage.faqs.map(({ question, answer }) => ({ question, answer }))
+    : faqs;
 
   return (
     <>
@@ -116,22 +139,7 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-            <div>
-              <div className="relative h-[350px] overflow-hidden rounded-[10px] shadow-[0_20px_40px_rgba(0,0,0,.08)] lg:h-[450px]">
-                <Image
-                  src="/quran.hero.webp"
-                  alt="Holy Quran and Golden Lantern Setup"
-                  fill
-                  priority
-                  className="object-cover"
-                />
-              </div>
-              <div className="mt-5 flex justify-center gap-2">
-                <span className="h-2 w-5 rounded bg-forest" />
-                <span className="h-2 w-2 rounded-full bg-[#d1cbbd]" />
-                <span className="h-2 w-2 rounded-full bg-[#d1cbbd]" />
-              </div>
-            </div>
+            <HeroMedia slides={homepage.heroSlides} />
           </div>
         </section>
 
@@ -151,7 +159,7 @@ export default function HomePage() {
         <section className="bg-forest py-5 text-white">
           <div className="site-container grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              [Truck, "Free Shipping", "On orders above ₹999"],
+              [Truck, "Market-based Shipping", "Local rates shown at checkout"],
               [ShoppingBag, "Cash on Delivery", "Available across India"],
               [CreditCard, "Secure Payment", "100% protected"],
               [Star, "Trusted by Thousands", "4.9 ★★★★★ Ratings"],
@@ -190,11 +198,17 @@ export default function HomePage() {
 
         <section id="best-sellers" className="site-container pb-2">
           <h2 className="section-title">Best Sellers</h2>
-          <div className="grid gap-[15px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {bestSellers.map((product) => (
-              <ProductCard key={product.name} product={product} compact />
-            ))}
-          </div>
+          {bestSellers.length ? (
+            <div className="grid gap-[15px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {bestSellers.map((product) => (
+                <ProductCard key={product.name} product={product} compact />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-[#d8d0bc] bg-cream px-6 py-10 text-center text-sm text-muted">
+              Best sellers will appear once the catalog connection is available.
+            </p>
+          )}
         </section>
 
         <section className="site-container py-[70px]">
@@ -231,6 +245,8 @@ export default function HomePage() {
           </div>
         </section>
 
+        {homepage.bannerEnabled && <HomeBannerGallery banners={homepage.banners} />}
+
         <section id="reviews" className="site-container pb-[70px]">
           <h2 className="section-title">Customer Reviews</h2>
           <div className="grid gap-5 md:grid-cols-3">
@@ -254,12 +270,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="faqs" className="border-t border-[#ebdcb9] bg-cream py-[60px]">
+        {displayedFaqs.length > 0 && <section id="faqs" className="border-t border-[#ebdcb9] bg-cream py-[60px]">
           <div className="site-container">
             <h2 className="section-title">Frequently Asked Questions</h2>
-            <Faq items={faqs} />
+            <Faq items={displayedFaqs} />
           </div>
-        </section>
+        </section>}
         <Newsletter />
       </main>
       <Footer />
