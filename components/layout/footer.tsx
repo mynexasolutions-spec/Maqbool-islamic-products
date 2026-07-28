@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Facebook, Instagram, Youtube } from "lucide-react";
+import { useMarket } from "@/components/providers/market-provider";
+import { marketHref } from "@/lib/markets";
 
 const columns = [
   {
@@ -26,9 +30,9 @@ const columns = [
   {
     title: "About Us",
     links: [
-      ["Our Story", "/about"],
-      ["Why Choose Us", "/about"],
-      ["Authenticity", "/about"],
+      ["Our Story", "/about#our-story"],
+      ["Why Choose Us", "/about#why-choose-us"],
+      ["Authenticity", "/about#authenticity"],
       ["Careers", "/contact"],
       ["Blog", "/about"],
     ],
@@ -45,11 +49,13 @@ const columns = [
 ] as const;
 
 export function Footer() {
+  const { marketSlug } = useMarket();
+
   return (
     <footer className="border-t border-[#ebdcb9] bg-[#f7f6f2] pb-5 pt-[60px]">
       <div className="site-container mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.2fr_repeat(4,.7fr)]">
         <div>
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href={marketHref(marketSlug, "/")} className="flex items-center gap-2.5">
             <svg viewBox="0 0 24 24" className="h-10 w-10 fill-forest" aria-hidden="true">
               <path d="M12 2 2 22h20L12 2Zm0 3.99L19.53 19H4.47L12 5.99Z" />
             </svg>
@@ -89,7 +95,7 @@ export function Footer() {
               {column.links.map(([label, href]) => (
                 <li key={label}>
                   <Link
-                    href={href}
+                    href={marketHref(marketSlug, href)}
                     className="text-sm text-muted hover:text-forest"
                   >
                     {label}

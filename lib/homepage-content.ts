@@ -11,6 +11,15 @@ export type HomepageContent = {
   available: boolean;
 };
 
+export type HomepageReview = {
+  id: string;
+  customerName: string;
+  rating: number;
+  body: string;
+  productName: string;
+  createdAt: string;
+};
+
 export async function getHomepageContent(): Promise<HomepageContent> {
   try {
     const supabase = await createClient();
@@ -30,5 +39,38 @@ export async function getHomepageContent(): Promise<HomepageContent> {
     };
   } catch {
     return { heroSlides: [], banners: [], faqs: [], bannerEnabled: false, available: false };
+  }
+}
+
+export async function getHomepageReviews(limit = 6): Promise<HomepageReview[]> {
+  try {
+    const supabase = await createClient();
+    const { data: reviews, error: reviewsError } = await supabase
+      .from("product_reviews")
+      .select("id,product_id,customer_name,rating,body,created_at")
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(Math.min(6, Math.max(1, limit)));
+    if (reviewsError) throw reviewsError;
+    if (!reviews?.length) return [];
+
+    const productIds = [...new Set(reviews.map((review) => review.product_id))];
+    const { data: products, error: productsError } = await supabase
+      .from("products")
+      .select("id,name")
+      .in("id", productIds);
+    if (productsError) throw productsError;
+    const productNames = new Map((products ?? []).map((product) => [product.id, product.name]));
+
+    return reviews.map((review) => ({
+      id: review.id,
+      customerName: review.customer_name,
+      rating: review.rating,
+      body: review.body,
+      productName: productNames.get(review.product_id) ?? "Maqbool Islamic Product",
+      createdAt: review.created_at,
+    }));
+  } catch {
+    return [];
   }
 }

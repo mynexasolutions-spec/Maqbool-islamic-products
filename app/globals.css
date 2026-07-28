@@ -44,4 +44,57 @@
   .gold-stars {
     @apply tracking-[2px] text-[#e0aa3e];
   }
+
+  .market-marquee {
+    @apply overflow-hidden bg-forest py-2 text-xs font-medium tracking-[0.5px] text-white;
+  }
+
+  .market-marquee-track {
+    @apply mx-auto flex w-full max-w-[1240px] justify-center px-5;
+  }
+
+  .market-marquee-group {
+    @apply inline-flex shrink-0 items-center justify-center gap-7 whitespace-nowrap;
+  }
+
+  .market-marquee-group[aria-hidden="true"] {
+    @apply hidden;
+  }
+}
+
+@keyframes market-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 639px) {
+  .market-marquee-track {
+    width: max-content;
+    max-width: none;
+    justify-content: flex-start;
+    padding-inline: 0;
+    animation: market-marquee-scroll 22s linear infinite;
+    will-change: transform;
+  }
+
+  .market-marquee-group {
+    display: inline-flex;
+    gap: 1.25rem;
+    padding-inline-end: 1.25rem;
+  }
+
+  .market-marquee-group[aria-hidden="true"] {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-marquee-track {
+    animation: none;
+    transform: none;
+  }
 }

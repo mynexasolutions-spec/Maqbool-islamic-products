@@ -22,6 +22,7 @@ describe("multi-market commerce", () => {
   it("creates stable market URLs without duplicate prefixes", () => {
     expect(marketHref("sa", "/shop/item")).toBe("/sa/shop/item");
     expect(marketHref("qa", "/in/shop/item")).toBe("/qa/shop/item");
+    expect(marketHref("my", "/about#authenticity")).toBe("/my/about#authenticity");
     expect(stripMarketPrefix("/dubai/checkout")).toBe("/checkout");
   });
 

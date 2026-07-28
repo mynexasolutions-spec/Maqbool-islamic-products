@@ -198,7 +198,7 @@ export function ProductDetailView({ product, related }: { product: Product; rela
         </div>
       </section>
       <ProductReviews product={product} />
-      {related.length ? <section className="bg-cream py-14"><div className="site-container"><h2 className="font-heading text-3xl text-forest">You may also like</h2><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{related.map((item) => <CatalogCard key={item.id} product={item} />)}</div></div></section> : null}
+      {related.length ? <section className="bg-cream py-14"><div className="site-container"><h2 className="font-heading text-3xl text-forest">You may also like</h2><div className="mt-7 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">{related.map((item) => <CatalogCard key={item.id} product={item} />)}</div></div></section> : null}
       {zoomOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="Zoomed product image" onClick={() => setZoomOpen(false)}>
           <button ref={closeZoomRef} type="button" aria-label="Close zoom" onClick={() => setZoomOpen(false)} className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white text-forest focus-visible:ring-2 focus-visible:ring-gold"><X /></button>

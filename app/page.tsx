@@ -18,14 +18,16 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { ProductCard } from "@/components/product-card";
+import { CatalogCard } from "@/components/catalog/catalog-card";
 import { Faq, type FaqItem } from "@/components/faq";
 import { Newsletter } from "@/components/newsletter";
 import { HeroMedia } from "@/components/home/hero-media";
 import { HomeBannerGallery } from "@/components/home/home-banner-gallery";
-import { getHomepageContent } from "@/lib/homepage-content";
+import { ReviewCarousel } from "@/components/home/review-carousel";
+import { getHomepageContent, getHomepageReviews, type HomepageReview } from "@/lib/homepage-content";
 import { getFeaturedProducts } from "@/lib/catalog-repository";
-import { formatMoney, marketHref, type MarketSlug } from "@/lib/markets";
+import { getRequestMarketSlug } from "@/lib/market-server";
+import { marketHref } from "@/lib/markets";
 
 export const metadata: Metadata = {
   title: "Maqbool Islamic Products - Everything for Your Deen",
@@ -72,24 +74,51 @@ const faqs: FaqItem[] = [
   },
 ];
 
+const fallbackReviews: HomepageReview[] = [
+  {
+    id: "fallback-quran",
+    customerName: "Zaid Khan",
+    rating: 5,
+    body: "The paper quality and binding of the Holy Quran edition is top-notch. Clear text and superb craftsmanship!",
+    productName: "The Holy Quran (Arabic Text)",
+    createdAt: "2026-01-18T00:00:00.000Z",
+  },
+  {
+    id: "fallback-mat",
+    customerName: "Fatima S.",
+    rating: 5,
+    body: "The velvet prayer mat is incredibly soft and comfortable for daily Salah. Very happy with the fast delivery as well.",
+    productName: "Premium Velvet Prayer Mat",
+    createdAt: "2026-01-12T00:00:00.000Z",
+  },
+  {
+    id: "fallback-attar",
+    customerName: "Mohammad Tariq",
+    rating: 5,
+    body: "The Oud Al Haramain Attar fragrance stays for almost the entire day. Pure quality and alcohol-free.",
+    productName: "Oud Al Haramain Premium Attar",
+    createdAt: "2026-01-05T00:00:00.000Z",
+  },
+  {
+    id: "fallback-tasbih",
+    customerName: "Aisha Rahman",
+    rating: 5,
+    body: "The tasbih feels beautifully balanced in the hand and arrived in thoughtful packaging. It has become part of my daily remembrance.",
+    productName: "Natural Stone Tasbih",
+    createdAt: "2025-12-28T00:00:00.000Z",
+  },
+];
+
 export default async function HomePage() {
-  const [homepage, catalogBestSellers] = await Promise.all([
+  const marketSlug = await getRequestMarketSlug();
+  const [homepage, bestSellers, approvedReviews] = await Promise.all([
     getHomepageContent(),
-    getFeaturedProducts(5).catch(() => []),
+    getFeaturedProducts(5, marketSlug).catch(() => []),
+    getHomepageReviews(),
   ]);
-  const bestSellers = catalogBestSellers.map((product) => ({
-    href: marketHref((product.marketSlug ?? "in") as MarketSlug, `/shop/${product.slug}`),
-    slug: product.slug,
-    name: product.name,
-    category: product.category,
-    price: formatMoney(product.price, (product.marketSlug ?? "in") as MarketSlug),
-    oldPrice: product.originalPrice ? formatMoney(product.originalPrice, (product.marketSlug ?? "in") as MarketSlug) : undefined,
-    image: product.images[0]?.src ?? "/quran.webp",
-    alt: product.images[0]?.alt ?? product.name,
-    reviews: product.reviewCount.toLocaleString("en-IN"),
-    badge: product.badge,
-    badgeTone: "gold" as const,
-  }));
+  const displayedReviews = approvedReviews.length >= 4
+    ? approvedReviews
+    : [...approvedReviews, ...fallbackReviews].slice(0, 6);
   const displayedFaqs = homepage.available
     ? homepage.faqs.map(({ question, answer }) => ({ question, answer }))
     : faqs;
@@ -98,9 +127,9 @@ export default async function HomePage() {
     <>
       <Header />
       <main>
-        <section className="overflow-hidden bg-cream py-[60px]">
+        <section className="overflow-hidden bg-cream pb-[60px] pt-4 lg:py-[60px]">
           <div className="site-container grid items-center gap-10 lg:grid-cols-[1.1fr_.9fr]">
-            <div>
+            <div className="order-2 lg:order-1">
               <p className="mb-[15px] text-[0.85rem] font-semibold uppercase tracking-[2px] text-gold">
                 Strengthen Your Connection
               </p>
@@ -114,13 +143,13 @@ export default async function HomePage() {
               </p>
               <div className="mb-10 flex flex-wrap gap-[15px]">
                 <Link
-                  href="/shop"
+                  href={marketHref(marketSlug, "/shop")}
                   className="rounded bg-forest px-[30px] py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-light"
                 >
                   Shop Now
                 </Link>
                 <Link
-                  href="#categories"
+                  href={`${marketHref(marketSlug, "/")}#categories`}
                   className="rounded border border-forest px-[30px] py-3 text-sm font-semibold text-forest transition-colors hover:bg-forest hover:text-white"
                 >
                   Explore Collections
@@ -139,14 +168,16 @@ export default async function HomePage() {
                 ))}
               </div>
             </div>
-            <HeroMedia slides={homepage.heroSlides} />
+            <div className="order-1 lg:order-2">
+              <HeroMedia slides={homepage.heroSlides} marketSlug={marketSlug} />
+            </div>
           </div>
         </section>
 
         <section className="border-b border-[#f7f4eb] py-[50px]">
-          <div className="site-container flex justify-between gap-5 overflow-x-auto pb-2.5">
+          <div className="site-container flex justify-between gap-5 overflow-x-auto pb-2.5 pt-2">
             {quickCategories.map(([Icon, title]) => (
-              <Link key={title} href="/shop" className="group flex min-w-[100px] flex-col items-center text-center">
+              <Link key={title} href={marketHref(marketSlug, "/shop")} className="group flex min-w-[100px] flex-col items-center text-center">
                 <span className="mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full bg-cream text-forest transition-all group-hover:-translate-y-1 group-hover:bg-forest group-hover:text-white">
                   <Icon className="h-6 w-6" />
                 </span>
@@ -177,19 +208,19 @@ export default async function HomePage() {
 
         <section id="categories" className="site-container py-[60px]">
           <h2 className="section-title">Featured Categories</h2>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {featured.map(([title, image, alt]) => (
               <Link
                 key={title}
-                href="/shop"
+                href={marketHref(marketSlug, "/shop")}
                 className="group overflow-hidden rounded-lg bg-cream text-center shadow-[0_5px_15px_rgba(0,0,0,.02)] transition-transform hover:-translate-y-1"
               >
-                <div className="relative h-60 overflow-hidden">
+                <div className="relative aspect-[4/3] overflow-hidden sm:aspect-square">
                   <Image src={image} alt={alt} fill className="object-cover transition-transform group-hover:scale-105" />
                 </div>
                 <div className="bg-white p-[15px]">
                   <h3 className="font-heading text-lg text-forest">{title}</h3>
-                  <span className="text-xs font-semibold text-muted">Show Now</span>
+                  <span className="text-xs font-semibold text-muted">Shop Now</span>
                 </div>
               </Link>
             ))}
@@ -199,9 +230,9 @@ export default async function HomePage() {
         <section id="best-sellers" className="site-container pb-2">
           <h2 className="section-title">Best Sellers</h2>
           {bestSellers.length ? (
-            <div className="grid gap-[15px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-[15px] lg:grid-cols-3 xl:grid-cols-5">
               {bestSellers.map((product) => (
-                <ProductCard key={product.name} product={product} compact />
+                <CatalogCard key={product.id} product={product} compact />
               ))}
             </div>
           ) : (
@@ -214,7 +245,14 @@ export default async function HomePage() {
         <section className="site-container py-[70px]">
           <div className="grid items-center gap-[30px] rounded-xl border border-[#ebdcb9] bg-cream p-10 lg:grid-cols-[.9fr_1.1fr_1fr]">
             <div className="relative h-[250px] overflow-hidden rounded-lg">
-              <Image src="/ramadan.webp" alt="Glowing Golden Moroccan Lantern" fill className="object-cover" />
+              <Image
+                src="/ramadan.webp"
+                alt="Glowing Golden Moroccan Lantern"
+                fill
+                loading="eager"
+                sizes="(max-width: 1023px) calc(100vw - 80px), 30vw"
+                className="object-cover"
+              />
             </div>
             <div>
               <p className="text-xs font-bold uppercase text-gold">Ramadan Kareem</p>
@@ -224,7 +262,7 @@ export default async function HomePage() {
               <p className="mb-6 text-sm text-muted">
                 Get everything you need for a spiritually enriching Ramadan.
               </p>
-              <Link href="/shop" className="inline-block rounded bg-forest px-7 py-3 text-sm font-semibold text-white">
+              <Link href={marketHref(marketSlug, "/shop")} className="inline-block rounded bg-forest px-7 py-3 text-sm font-semibold text-white">
                 Shop Ramadan Collection
               </Link>
             </div>
@@ -245,29 +283,11 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {homepage.bannerEnabled && <HomeBannerGallery banners={homepage.banners} />}
+        {homepage.bannerEnabled && <HomeBannerGallery banners={homepage.banners} marketSlug={marketSlug} />}
 
         <section id="reviews" className="site-container pb-[70px]">
           <h2 className="section-title">Customer Reviews</h2>
-          <div className="grid gap-5 md:grid-cols-3">
-            {[
-              ["Zaid Khan", "The paper quality and binding of the Holy Quran edition is top-notch. Clear text and superb craftsmanship!", "The Holy Quran (Arabic Text)"],
-              ["Fatima S.", "The velvet prayer mat is incredibly soft and comfortable for daily Salah. Very happy with the fast delivery as well.", "Premium Velvet Prayer Mat"],
-              ["Mohammad Tariq", "The Oud Al Haramain Attar fragrance stays for almost the entire day. Pure quality and alcohol-free.", "Oud Al Haramain Premium Attar"],
-            ].map(([name, review, product]) => (
-              <article key={name} className="rounded-lg border border-[#f0ebde] bg-white p-6 shadow-[0_5px_15px_rgba(0,0,0,.02)]">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[0.95rem] font-bold text-forest">{name}</h3>
-                  <span className="rounded bg-[#e2f0eb] px-1.5 py-0.5 text-[0.7rem] font-semibold text-forest-light">
-                    Verified
-                  </span>
-                </div>
-                <p className="gold-stars my-2 text-xs">★★★★★</p>
-                <p className="text-sm leading-6 text-muted">&ldquo;{review}&rdquo;</p>
-                <p className="mt-4 text-xs font-semibold text-forest">{product}</p>
-              </article>
-            ))}
-          </div>
+          <ReviewCarousel reviews={displayedReviews} />
         </section>
 
         {displayedFaqs.length > 0 && <section id="faqs" className="border-t border-[#ebdcb9] bg-cream py-[60px]">

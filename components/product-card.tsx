@@ -80,7 +80,7 @@ export function ProductCardVisual({
           </div>
         </div>
       </Link>
-      {actions ? <div className="grid grid-cols-2 gap-2 border-t border-[#eee8d8] p-3">{actions}</div> : null}
+      {actions ? <div className="grid grid-cols-1 gap-2 border-t border-[#eee8d8] p-2 sm:p-3">{actions}</div> : null}
     </article>
   );
 }
@@ -111,7 +111,7 @@ export function ProductCard({
           src={product.image}
           alt={product.alt}
           fill
-          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 20vw"
+          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 20vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
         />
       )}

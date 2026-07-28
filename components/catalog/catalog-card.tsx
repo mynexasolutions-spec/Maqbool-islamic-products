@@ -14,7 +14,7 @@ import { marketHref, type MarketSlug } from "@/lib/markets";
 const actionClassName =
   "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded px-2 text-center text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none";
 
-export function CatalogCard({ product }: { product: Product }) {
+export function CatalogCard({ product, compact = false }: { product: Product; compact?: boolean }) {
   const router = useRouter();
   const { addItem } = useCart();
   const { customer } = useCustomer();
@@ -80,11 +80,12 @@ export function CatalogCard({ product }: { product: Product }) {
       ratingText={String(product.rating)}
       reviewText={product.reviewCount.toLocaleString("en-IN")}
       badge={product.badge}
+      compact={compact}
       image={(
         <CatalogImage
           src={product.images[0]?.src ?? ""}
           alt={product.images[0]?.alt ?? product.name}
-          sizes="(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
+          sizes="(max-width: 639px) 50vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
         />
       )}

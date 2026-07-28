@@ -38,7 +38,10 @@ export default function AboutPage() {
       <Header />
       <PageBanner title="Our Story & Heritage" current="About Us" />
       <main>
-        <section className="site-container grid items-center gap-[50px] py-[70px] lg:grid-cols-2">
+        <section
+          id="our-story"
+          className="site-container scroll-mt-32 grid items-center gap-[50px] py-[70px] lg:grid-cols-2"
+        >
           <div className="relative h-[460px] overflow-hidden rounded-[10px] shadow-[0_18px_35px_rgba(15,56,44,.1)]">
             <Image
               src="/quran.hero.webp"
@@ -91,7 +94,10 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="site-container py-[70px]">
+        <section
+          id="why-choose-us"
+          className="site-container scroll-mt-32 py-[70px]"
+        >
           <h2 className="section-title">What Defines Maqbool Islamic Products?</h2>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {values.map(({ icon: Icon, title, text }) => (
@@ -106,6 +112,48 @@ export default function AboutPage() {
                 <p className="mt-3 text-sm leading-6 text-muted">{text}</p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section
+          id="authenticity"
+          className="site-container scroll-mt-32 grid items-center gap-[50px] pb-[70px] lg:grid-cols-2"
+        >
+          <div className="relative h-[460px] overflow-hidden rounded-[10px] shadow-[0_18px_35px_rgba(15,56,44,.1)]">
+            <Image
+              src="/ittar2.webp"
+              alt="Authentic Islamic fragrance oils presented with care"
+              fill
+              sizes="(max-width: 1023px) calc(100vw - 40px), 50vw"
+              className="object-cover"
+            />
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[2px] text-gold">
+              Our Authenticity Standard
+            </p>
+            <h2 className="font-heading text-[2.4rem] leading-tight text-forest">
+              Carefully sourced. Respectfully selected. Honestly represented.
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-muted">
+              Every item is reviewed for material quality, origin, and suitability before it
+              joins our collection. We work with trusted makers and suppliers, describe
+              products clearly, and never compromise the reverence due to essentials used in
+              worship and remembrance.
+            </p>
+            <div className="mt-6 space-y-3 text-sm leading-7 text-muted">
+              {[
+                "Trusted, traceable suppliers",
+                "Alcohol-free fragrance oils",
+                "Quality checked before dispatch",
+                "Clear materials and care guidance",
+              ].map((standard) => (
+                <div key={standard} className="flex items-center gap-3">
+                  <BadgeCheck className="h-5 w-5 shrink-0 text-gold" aria-hidden="true" />
+                  <span className="font-semibold text-forest">{standard}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
